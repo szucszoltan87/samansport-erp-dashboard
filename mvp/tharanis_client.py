@@ -56,7 +56,7 @@ def _build_envelope(entity: str, leker_xml: str) -> str:
 
 def _build_leker(start_date: str, end_date: str, cikkszam: str | None,
                  page: int = 0, limit: int = 200) -> str:
-    """Build the inner <leker> XML payload. Date format: YYYY.MM.DD"""
+    """Build the inner <leker> XML payload for kimeno_szamla. Date format: YYYY.MM.DD"""
     szurok = (
         f"<szuro><mezo>teljdat</mezo><relacio>&gt;=</relacio><ertek>{start_date}</ertek></szuro>"
         f"<szuro><mezo>teljdat</mezo><relacio>&lt;=</relacio><ertek>{end_date}</ertek></szuro>"
@@ -72,6 +72,18 @@ def _build_leker(start_date: str, end_date: str, cikkszam: str | None,
         f"<szurok>{szurok}</szurok>"
         f"<adatok><fej>I</fej></adatok></leker>"
     )
+
+
+def _build_keszlet_leker(cikkszam: str | None, page: int = 0, limit: int = 200) -> str:
+    """Build the inner <leker> XML payload for the keszlet (inventory) entity."""
+    if cikkszam:
+        szurok = (
+            f"<szurok><szuro><mezo>cikksz</mezo><relacio>=</relacio>"
+            f"<ertek>{cikkszam}</ertek></szuro></szurok>"
+        )
+    else:
+        szurok = ""
+    return f"<leker><limit>{limit}</limit><oldal>{page}</oldal>{szurok}</leker>"
 
 
 def _post_soap(entity: str, leker_xml: str) -> str:
@@ -134,17 +146,47 @@ def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[
                 afa      = float(afa_s) if afa_s else 27.0
                 brutto_ar    = round(netto_ar * (1 + afa / 100), 4)
                 brutto_ertek = round(brutto_ar * menny, 2)
+                netto_ertek  = round(netto_ar * menny, 2)
             except (ValueError, TypeError):
                 continue
 
             if cikksz and menny > 0:
                 records.append({
-                    "kelt":         kelt,
-                    "Cikkszám":     cikksz,
-                    "Mennyiség":    menny,
-                    "Bruttó ár":    brutto_ar,
-                    "Bruttó érték": brutto_ertek,
+                    "kelt":          kelt,
+                    "Cikkszám":      cikksz,
+                    "Mennyiség":     menny,
+                    "Nettó ár":      netto_ar,
+                    "Bruttó ár":     brutto_ar,
+                    "Nettó érték":   netto_ertek,
+                    "Bruttó érték":  brutto_ertek,
                 })
+    return records
+
+
+def _parse_keszlet(valasz_xml: str) -> list[dict]:
+    """Parse <elem> records from a keszlet (inventory) valasz block.
+
+    Each elem has cikksz and kiadhato1..6 (per-warehouse available qty).
+    Returns one row per SKU with individual warehouse columns and a total.
+    """
+    records = []
+    for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
+        elem = elem_m.group(1)
+        cikksz = _tag(elem, "cikksz")
+        if not cikksz:
+            continue
+        warehouses = {}
+        total = 0.0
+        for i in range(1, 7):
+            v = _tag(elem, f"kiadhato{i}")
+            qty = float(v) if v else 0.0
+            warehouses[f"Raktár {i}"] = qty
+            total += qty
+        records.append({
+            "Cikkszám": cikksz,
+            "Készlet":  round(total, 2),
+            **warehouses,
+        })
     return records
 
 
@@ -158,13 +200,14 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
     Args:
         start_date: 'YYYY.MM.DD'
         end_date:   'YYYY.MM.DD'
-        cikkszam:   optional product code filter (exact match)
+        cikkszam:   optional product code filter; None = all products
         limit:      page size (default 200)
 
     Returns:
         DataFrame with columns:
             kelt (datetime), Cikkszám (str),
-            Mennyiség (float), Bruttó ár (float), Bruttó érték (float)
+            Mennyiség (float), Nettó ár (float), Bruttó ár (float),
+            Nettó érték (float), Bruttó érték (float)
     """
     all_records: list[dict] = []
     page = 0
@@ -186,12 +229,53 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
 
     if not all_records:
         return pd.DataFrame(
-            columns=["kelt", "Cikkszám", "Mennyiség", "Bruttó ár", "Bruttó érték"]
+            columns=["kelt", "Cikkszám", "Mennyiség",
+                     "Nettó ár", "Bruttó ár", "Nettó érték", "Bruttó érték"]
         )
 
     df = pd.DataFrame(all_records)
     df["kelt"] = pd.to_datetime(df["kelt"], format="%Y.%m.%d", errors="coerce")
     return df
+
+
+def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame:
+    """
+    Fetch current inventory levels (keszlet) from Tharanis V3.
+
+    Args:
+        cikkszam: optional product code filter; None = all products
+        limit:    page size (default 200)
+
+    Returns:
+        DataFrame with columns:
+            Cikkszám (str), Készlet (float), Raktár 1..6 (float)
+    """
+    all_records: list[dict] = []
+    page = 0
+
+    while True:
+        leker_xml = _build_keszlet_leker(cikkszam, page, limit)
+        raw = _post_soap("keszlet", leker_xml)
+        valasz = _extract_valasz(raw)
+
+        if not valasz:
+            break
+
+        page_records = _parse_keszlet(valasz)
+        all_records.extend(page_records)
+
+        if len(page_records) < limit:
+            break
+        page += 1
+
+    if not all_records:
+        return pd.DataFrame(
+            columns=["Cikkszám", "Készlet",
+                     "Raktár 1", "Raktár 2", "Raktár 3",
+                     "Raktár 4", "Raktár 5", "Raktár 6"]
+        )
+
+    return pd.DataFrame(all_records)
 
 
 # ── Quick connection test ────────────────────────────────────────────────────
@@ -200,7 +284,7 @@ if __name__ == "__main__":
     from datetime import datetime, timedelta
 
     print("=" * 60)
-    print("Tharanis V3 API — connection test")
+    print("Tharanis V3 API -- connection test")
     print("=" * 60)
 
     today = datetime.now()
@@ -214,11 +298,19 @@ if __name__ == "__main__":
         print("No data returned.")
     else:
         print(f"Records fetched : {len(df)}")
-        print(f"Unique products : {df['Cikkszám'].nunique()}")
-        print(f"Total Bruttó ért: {df['Bruttó érték'].sum():,.0f} HUF")
+        print(f"Unique products : {df['Cikkszam'].nunique()}")
+        print(f"Total Brutto ert: {df['Brutto ertek'].sum():,.0f} HUF")
         print()
         print("Sample (first 5 rows):")
         print(df.head().to_string(index=False))
+
+    print()
+    print("Fetching keszlet (inventory) for product 4633...")
+    inv = get_inventory("4633")
+    if inv.empty:
+        print("No inventory data.")
+    else:
+        print(inv.to_string(index=False))
 
     print()
     print("Test complete.")
