@@ -75,10 +75,12 @@ def load_product_master() -> pd.DataFrame:
 # ── Session state ─────────────────────────────────────────────────────────────
 
 for _key, _default in [
-    ("sales_df",       None),
-    ("inv_df",         None),
-    ("last_query",     {}),
-    ("last_inv_query", {}),
+    ("sales_df",        None),
+    ("inv_df",          None),
+    ("mozgas_df",       None),
+    ("last_query",      {}),
+    ("last_inv_query",  {}),
+    ("last_mozgas_query", {}),
 ]:
     if _key not in st.session_state:
         st.session_state[_key] = _default
@@ -102,6 +104,21 @@ def fetch_sales(cikkszam: str | None, start: datetime, end: datetime) -> pd.Data
             df = api.get_sales(start_s, end_s, cikkszam)
             if df.empty:
                 st.warning("Nincs értékesítési adat a kiválasztott feltételekre.")
+                return None
+            return df
+        except Exception as e:
+            st.error(f"API hiba: {e}")
+            return None
+
+
+def fetch_movements(cikkszam: str | None, start: datetime, end: datetime) -> pd.DataFrame | None:
+    start_s = start.strftime("%Y.%m.%d")
+    end_s   = end.strftime("%Y.%m.%d")
+    with st.spinner("Mozgástörténet betöltése…"):
+        try:
+            df = api.get_stock_movements(start_s, end_s, cikkszam)
+            if df.empty:
+                st.warning("Nincs mozgásadat a kiválasztott feltételekre.")
                 return None
             return df
         except Exception as e:
@@ -149,20 +166,21 @@ def render_sidebar(products: pd.DataFrame):
         # None = all products (no cikksz filter sent to API)
         cikkszam_api = None if selected_code == ALL_PRODUCTS_CODE else selected_code
 
-        # Date range (sales only)
-        st.subheader("📅 Időszak (értékesítés)")
-        start_date = st.date_input(
-            "Kezdő dátum",
-            key="date_start",
-            value=datetime.now() - timedelta(days=365),
-            max_value=datetime.now(),
+        # Date range (sales + movements)
+        st.subheader("📅 Időszak")
+        _today = datetime.now().date()
+        _default_start = (_today.replace(year=_today.year - 1))
+        date_range = st.date_input(
+            "Kezdő – Záró dátum",
+            key="date_range",
+            value=(_default_start, _today),
+            max_value=_today,
         )
-        end_date = st.date_input(
-            "Záró dátum",
-            key="date_end",
-            value=datetime.now(),
-            max_value=datetime.now(),
-        )
+        # date_input returns a tuple only when both ends are selected
+        if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+            start_date, end_date = date_range
+        else:
+            start_date = end_date = date_range[0] if date_range else _today
 
         st.markdown("---")
 
@@ -204,6 +222,25 @@ def render_sidebar(products: pd.DataFrame):
         if st.session_state.inv_df is not None:
             n = len(st.session_state.inv_df)
             st.success(f"✅ {n} termék készlete")
+
+        load_mozgas = st.button(
+            "📋 Mozgástörténet betöltése",
+            use_container_width=True,
+        )
+        if load_mozgas:
+            mdf = fetch_movements(cikkszam_api, start_date, end_date)
+            if mdf is not None:
+                st.session_state.mozgas_df = mdf
+                st.session_state.last_mozgas_query = {
+                    "cikkszam": cikkszam_api,
+                    "label":    selected_label,
+                    "start":    start_date,
+                    "end":      end_date,
+                }
+
+        if st.session_state.mozgas_df is not None:
+            n = len(st.session_state.mozgas_df)
+            st.success(f"✅ {n} mozgás sor")
 
         st.markdown("---")
         st.caption("Tharanis ERP • SamanSport MVP")
@@ -414,6 +451,104 @@ def render_inventory_tab():
             st.warning("Minden raktárban nulla a készlet.")
 
 
+# ── Movements tab ─────────────────────────────────────────────────────────────
+
+def render_movements_tab():
+    if st.session_state.mozgas_df is None:
+        st.info(
+            "👈 Válasszon terméket és időszakot, "
+            "majd kattintson a **Mozgástörténet betöltése** gombra."
+        )
+        return
+
+    mdf  = st.session_state.mozgas_df
+    meta = st.session_state.last_mozgas_query
+    label  = meta.get("label", "")
+    is_all = meta.get("cikkszam") is None
+
+    # Controls
+    col_period, col_chart = st.columns([2, 2])
+    with col_period:
+        period = st.radio("🗓️ Periódus", PERIOD_OPTIONS, horizontal=True, key="mozgas_period")
+    with col_chart:
+        chart_type = st.radio("📈 Diagram", ["Oszlop", "Vonal"], horizontal=True, key="mozgas_chart")
+
+    mdf2 = mdf.copy()
+    mdf2["Periódus"] = period_key(mdf2["kelt"], period)
+
+    # Split in (B) vs out (K)
+    be  = mdf2[mdf2["Irány"] == "B"].groupby("Periódus")["Mennyiség"].sum().reset_index()
+    ki  = mdf2[mdf2["Irány"] == "K"].groupby("Periódus")["Mennyiség"].sum().reset_index()
+
+    # All periods union
+    all_periods = sorted(set(be["Periódus"]).union(set(ki["Periódus"])))
+    be_map = be.set_index("Periódus")["Mennyiség"].to_dict()
+    ki_map = ki.set_index("Periódus")["Mennyiség"].to_dict()
+    be_vals = [be_map.get(p, 0) for p in all_periods]
+    ki_vals = [ki_map.get(p, 0) for p in all_periods]
+
+    fig = go.Figure()
+    if chart_type == "Oszlop":
+        fig.add_trace(go.Bar(
+            x=all_periods, y=be_vals, name="Beérkező (B)",
+            marker_color="#2ca02c",
+            hovertemplate="%{x}<br>Beérkező: %{y:,.0f} db<extra></extra>",
+        ))
+        fig.add_trace(go.Bar(
+            x=all_periods, y=ki_vals, name="Kiadó (K)",
+            marker_color="#d62728",
+            hovertemplate="%{x}<br>Kiadó: %{y:,.0f} db<extra></extra>",
+        ))
+        fig.update_layout(barmode="group")
+    else:
+        fig.add_trace(go.Scatter(
+            x=all_periods, y=be_vals, name="Beérkező (B)",
+            mode="lines+markers", line=dict(color="#2ca02c", width=2.5),
+            hovertemplate="%{x}<br>Beérkező: %{y:,.0f} db<extra></extra>",
+        ))
+        fig.add_trace(go.Scatter(
+            x=all_periods, y=ki_vals, name="Kiadó (K)",
+            mode="lines+markers", line=dict(color="#d62728", width=2.5),
+            hovertemplate="%{x}<br>Kiadó: %{y:,.0f} db<extra></extra>",
+        ))
+
+    fig.update_layout(
+        title=dict(
+            text=(
+                f"<b>{label}</b><br>"
+                f"<sup>Raktári mozgások — {meta.get('start')} – {meta.get('end')}</sup>"
+            ),
+            font=dict(size=17),
+        ),
+        xaxis_title=period,
+        yaxis_title="Mennyiség (db)",
+        hovermode="x unified",
+        height=500,
+        xaxis=dict(tickangle=-45),
+        margin=dict(t=90),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Summary
+    st.markdown("---")
+    s1, s2, s3, s4 = st.columns(4)
+    total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
+    total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
+    with s1:
+        st.metric("Összes beérkező",  f"{total_be:,.0f} db")
+    with s2:
+        st.metric("Összes kiadó",     f"{total_ki:,.0f} db")
+    with s3:
+        st.metric("Nettó mozgás",     f"{total_be - total_ki:+,.0f} db")
+    with s4:
+        st.metric("Mozgástípusok",    f"{mdf['Mozgástípus'].nunique()}")
+
+    with st.expander("📋 Részletes mozgások"):
+        show = mdf.copy()
+        show["kelt"] = show["kelt"].dt.strftime("%Y-%m-%d")
+        st.dataframe(show, use_container_width=True)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -422,13 +557,18 @@ def main():
     products = load_product_master()
     render_sidebar(products)
 
-    tab_sales, tab_inv = st.tabs(["📈 Értékesítés", "📦 Készlet"])
+    tab_sales, tab_inv, tab_mozgas = st.tabs(
+        ["📈 Értékesítés", "📦 Készlet", "📋 Mozgástörténet"]
+    )
 
     with tab_sales:
         render_sales_tab()
 
     with tab_inv:
         render_inventory_tab()
+
+    with tab_mozgas:
+        render_movements_tab()
 
 
 if __name__ == "__main__":

@@ -86,6 +86,26 @@ def _build_keszlet_leker(cikkszam: str | None, page: int = 0, limit: int = 200) 
     return f"<leker><limit>{limit}</limit><oldal>{page}</oldal>{szurok}</leker>"
 
 
+def _build_mozgas_leker(start_date: str, end_date: str, cikkszam: str | None,
+                        page: int = 0, limit: int = 200) -> str:
+    """Build the inner <leker> XML payload for raktari_mozgas. Date format: YYYY.MM.DD"""
+    szurok = (
+        f"<szuro><mezo>kelt</mezo><relacio>&gt;=</relacio><ertek>{start_date}</ertek></szuro>"
+        f"<szuro><mezo>kelt</mezo><relacio>&lt;=</relacio><ertek>{end_date}</ertek></szuro>"
+        f"<szuro><mezo>torolt</mezo><relacio>=</relacio><ertek>0</ertek></szuro>"
+    )
+    if cikkszam:
+        szurok += (
+            f"<szuro><mezo>cikksz</mezo><relacio>=</relacio>"
+            f"<ertek>{cikkszam}</ertek></szuro>"
+        )
+    return (
+        f"<leker><limit>{limit}</limit><oldal>{page}</oldal>"
+        f"<szurok>{szurok}</szurok>"
+        f"<adatok><fej>I</fej></adatok></leker>"
+    )
+
+
 def _post_soap(entity: str, leker_xml: str) -> str:
     envelope = _build_envelope(entity, leker_xml)
     r = requests.post(
@@ -190,6 +210,46 @@ def _parse_keszlet(valasz_xml: str) -> list[dict]:
     return records
 
 
+def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict]:
+    """Parse <elem> records from a raktari_mozgas valasz block.
+
+    Same invoice-level filter caveat as kimeno_szamla: the API returns whole
+    movement documents; we filter tetelek client-side by cikksz.
+    irany: B = beérkező (stock in), K = kiadó (stock out)
+    """
+    records = []
+    for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
+        elem = elem_m.group(1)
+        fej_m = re.search(r"<fej>(.*?)</fej>", elem, re.DOTALL)
+        if not fej_m:
+            continue
+        fej   = fej_m.group(1)
+        kelt  = _tag(fej, "kelt")
+        irany = _tag(fej, "irany")   # B or K
+        mozgas = _tag(fej, "mozgas") # movement type label
+
+        for tet_m in re.finditer(r"<tetel>(.*?)</tetel>", elem, re.DOTALL):
+            t = tet_m.group(1)
+            cikksz = _tag(t, "cikksz")
+            if cikkszam_filter and cikksz != cikkszam_filter:
+                continue
+            menny_s = _tag(t, "menny")
+            try:
+                menny = float(menny_s)
+            except (ValueError, TypeError):
+                continue
+            if not cikksz or menny == 0:
+                continue
+            records.append({
+                "kelt":        kelt,
+                "Cikkszám":    cikksz,
+                "Irány":       irany,
+                "Mozgástípus": mozgas,
+                "Mennyiség":   abs(menny),
+            })
+    return records
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
@@ -276,6 +336,51 @@ def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame
         )
 
     return pd.DataFrame(all_records)
+
+
+def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = None,
+                        limit: int = 200) -> pd.DataFrame:
+    """
+    Fetch warehouse movement history (raktari_mozgas) from Tharanis V3.
+
+    Args:
+        start_date: 'YYYY.MM.DD'
+        end_date:   'YYYY.MM.DD'
+        cikkszam:   optional product code filter; None = all products
+        limit:      page size (default 200)
+
+    Returns:
+        DataFrame with columns:
+            kelt (datetime), Cikkszám (str), Irány (str: B/K),
+            Mozgástípus (str), Mennyiség (float)
+        Irány: B = beérkező (stock in), K = kiadó (stock out)
+    """
+    all_records: list[dict] = []
+    page = 0
+
+    while True:
+        leker_xml = _build_mozgas_leker(start_date, end_date, cikkszam, page, limit)
+        raw = _post_soap("raktari_mozgas", leker_xml)
+        valasz = _extract_valasz(raw)
+
+        if not valasz:
+            break
+
+        page_records = _parse_mozgas(valasz, cikkszam_filter=cikkszam)
+        all_records.extend(page_records)
+
+        if len(page_records) < limit:
+            break
+        page += 1
+
+    if not all_records:
+        return pd.DataFrame(
+            columns=["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]
+        )
+
+    df = pd.DataFrame(all_records)
+    df["kelt"] = pd.to_datetime(df["kelt"], format="%Y.%m.%d", errors="coerce")
+    return df
 
 
 # ── Quick connection test ────────────────────────────────────────────────────
