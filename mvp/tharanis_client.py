@@ -280,10 +280,16 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
         if not valasz:
             break
 
+        # Count raw <elem> tags to decide pagination — NOT filtered row count.
+        # The API limit applies to invoices (elems); each invoice may have
+        # many tetelek, and we filter tetelek client-side by cikksz.
+        # Using filtered count would stop after page 0 since a page of 200
+        # invoices typically yields far fewer rows for any single product.
+        raw_elem_count = len(re.findall(r"<elem>", valasz))
         page_records = _parse_tetelek(valasz, cikkszam_filter=cikkszam)
         all_records.extend(page_records)
 
-        if len(page_records) < limit:
+        if raw_elem_count < limit:
             break
         page += 1
 
@@ -366,10 +372,11 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
         if not valasz:
             break
 
+        raw_elem_count = len(re.findall(r"<elem>", valasz))
         page_records = _parse_mozgas(valasz, cikkszam_filter=cikkszam)
         all_records.extend(page_records)
 
-        if len(page_records) < limit:
+        if raw_elem_count < limit:
             break
         page += 1
 
