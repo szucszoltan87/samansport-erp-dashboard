@@ -153,11 +153,13 @@ def render_sidebar(products: pd.DataFrame):
         st.subheader("📅 Időszak (értékesítés)")
         start_date = st.date_input(
             "Kezdő dátum",
+            key="date_start",
             value=datetime.now() - timedelta(days=365),
             max_value=datetime.now(),
         )
         end_date = st.date_input(
             "Záró dátum",
+            key="date_end",
             value=datetime.now(),
             max_value=datetime.now(),
         )
