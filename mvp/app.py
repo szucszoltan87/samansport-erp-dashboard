@@ -365,6 +365,24 @@ div[role="radiogroup"] { gap: 0.2rem !important; }
 .risk-table tr:last-child td { border-bottom: none; }
 .risk-table tr:hover td { background: #f9fafb; }
 
+/* ── Main area primary button (Betöltés) – blue, compact ── */
+.main div.stButton > button[kind="primary"] {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: white !important;
+    padding: 0.28rem 0.9rem !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    min-height: 0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(37,99,235,0.25) !important;
+}
+.main div.stButton > button[kind="primary"]:hover {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+}
+
 /* ── Misc ── */
 .hline { height: 1px; background: #f1f5f9; margin: 1.25rem 0; }
 .stDownloadButton > button {
@@ -899,6 +917,8 @@ def _analytics_sales(load_triggered: bool = False):
                 "start":    start,
                 "end":      end,
             }
+            # Keep the selectbox showing the loaded product on rerun
+            st.session_state["an_prod_sel"] = sel_label
 
     # ── Guard: nothing loaded yet ─────────────────────────────────────────────
     df   = st.session_state.sales_df
@@ -1122,7 +1142,7 @@ def render_analytics():
     with btn_col:
         st.write("")
         load_triggered = st.button(
-            "Betöltése", key="an_load_top", type="primary", use_container_width=True,
+            "Betöltés", key="an_load_top", type="primary", use_container_width=True,
         )
 
     view = st.radio(
