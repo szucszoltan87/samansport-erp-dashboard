@@ -365,6 +365,17 @@ div[role="radiogroup"] { gap: 0.2rem !important; }
 .risk-table tr:last-child td { border-bottom: none; }
 .risk-table tr:hover td { background: #f9fafb; }
 
+/* ── Selectbox dropdown – widen + horizontal scroll for long product names ── */
+[data-baseweb="popover"] {
+    min-width: min(720px, 90vw) !important;
+}
+[data-baseweb="menu"] {
+    overflow-x: auto !important;
+}
+[data-baseweb="menu"] [role="option"] {
+    white-space: nowrap !important;
+}
+
 /* ── Main area primary button (Betöltés) – blue, compact ── */
 .main div.stButton > button[kind="primary"] {
     background: #2563eb !important;
@@ -901,6 +912,25 @@ def _analytics_sales(load_triggered: bool = False):
     if not products.empty:
         for _, r in products.iterrows():
             prod_opts[f"{r['Cikkszám']}  –  {r['Cikknév']}"] = r["Cikkszám"]
+    elif st.session_state.sales_df is not None:
+        # CSV master not available – derive product list from loaded sales data
+        _pm = st.session_state.sales_df
+        _sc = find_sku_col(_pm)
+        _nc = find_name_col(_pm)
+        if _sc:
+            _rows = (
+                _pm[[_sc] + ([_nc] if _nc else [])]
+                .drop_duplicates(subset=[_sc])
+                .dropna(subset=[_sc])
+                .sort_values(_nc if _nc else _sc)
+            )
+            for _, r in _rows.iterrows():
+                lbl = (
+                    f"{r[_sc]}  –  {r[_nc]}"
+                    if _nc and pd.notna(r.get(_nc))
+                    else str(r[_sc])
+                )
+                prod_opts[lbl] = r[_sc]
 
     sel_label = st.selectbox("Termék", list(prod_opts.keys()), key="an_prod_sel")
 
