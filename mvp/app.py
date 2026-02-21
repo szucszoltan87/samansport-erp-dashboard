@@ -1028,22 +1028,7 @@ def _analytics_sales(load_triggered: bool = False):
     )
     full = df.copy()
     full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
-
-    # Format numeric columns with thousands separator
-    _col_cfg = {}
-    for _c in full.columns:
-        if _c == "kelt":
-            _col_cfg[_c] = st.column_config.TextColumn("Dátum")
-        elif pd.api.types.is_numeric_dtype(full[_c]):
-            _col_cfg[_c] = st.column_config.NumberColumn(_c, format="%,.0f")
-
-    st.dataframe(
-        full.reset_index(drop=True),
-        use_container_width=True,
-        height=400,
-        hide_index=True,
-        column_config=_col_cfg,
-    )
+    st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
     fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
     csv_bytes = full.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
