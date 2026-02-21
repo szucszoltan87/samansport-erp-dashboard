@@ -909,10 +909,14 @@ def _analytics_sales(load_triggered: bool = False):
     products = load_product_master()
     prod_opts: dict = {ALL_PRODUCTS_LABEL: None}
     if not products.empty:
+        # Source 1: CSV product master
         for _, r in products.iterrows():
             prod_opts[f"{r['Cikkszám']}  –  {r['Cikknév']}"] = r["Cikkszám"]
-    elif st.session_state.sales_df is not None:
-        # CSV master not available – derive product list from loaded sales data
+    elif st.session_state.get("_prod_opts_cache"):
+        # Source 2: list cached from initial all-products load (survives filtered reloads)
+        prod_opts = st.session_state["_prod_opts_cache"]
+    elif st.session_state.sales_df is not None and (st.session_state.last_query or {}).get("cikkszam") is None:
+        # Source 3: build fresh from sales_df only when it contains all-products data
         _pm = st.session_state.sales_df
         _sc = find_sku_col(_pm)
         _nc = find_name_col(_pm)
@@ -930,6 +934,7 @@ def _analytics_sales(load_triggered: bool = False):
                     else str(r[_sc])
                 )
                 prod_opts[lbl] = r[_sc]
+            st.session_state["_prod_opts_cache"] = prod_opts  # cache for subsequent runs
 
     sel_label = st.selectbox("Termék", list(prod_opts.keys()), key="an_prod_sel")
 
@@ -1208,6 +1213,25 @@ def main():
                 "start":    _start,
                 "end":      _end,
             }
+            # Cache product list so it survives later filtered loads
+            _sc = find_sku_col(_df)
+            _nc = find_name_col(_df)
+            if _sc:
+                _prows = (
+                    _df[[_sc] + ([_nc] if _nc else [])]
+                    .drop_duplicates(subset=[_sc])
+                    .dropna(subset=[_sc])
+                    .sort_values(_nc if _nc else _sc)
+                )
+                _cache: dict = {ALL_PRODUCTS_LABEL: None}
+                for _, _r in _prows.iterrows():
+                    _lbl = (
+                        f"{_r[_sc]}  –  {_r[_nc]}"
+                        if _nc and pd.notna(_r.get(_nc))
+                        else str(_r[_sc])
+                    )
+                    _cache[_lbl] = _r[_sc]
+                st.session_state["_prod_opts_cache"] = _cache
 
     page = st.session_state.page
     if page == "dashboard":
