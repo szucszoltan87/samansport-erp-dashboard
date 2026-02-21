@@ -366,10 +366,9 @@ div[role="radiogroup"] { gap: 0.2rem !important; }
 .risk-table tr:hover td { background: #f9fafb; }
 
 /* ── Selectbox dropdown – widen + horizontal scroll for long product names ── */
-[data-baseweb="popover"] {
-    min-width: min(720px, 90vw) !important;
-}
+/* Target only the menu inside popovers, NOT the datepicker calendar popover */
 [data-baseweb="menu"] {
+    min-width: min(720px, 90vw) !important;
     overflow-x: auto !important;
 }
 [data-baseweb="menu"] [role="option"] {
