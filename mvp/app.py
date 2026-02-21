@@ -97,9 +97,9 @@ section[data-testid="stSidebar"] > div > div:first-child {
 [data-testid="stSidebar"] .stSelectbox label,
 [data-testid="stSidebar"] .stDateInput label {
     color: #9ca3af !important;
-    font-size: 0.58rem !important;
+    font-size: 0.56rem !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.09em !important;
+    letter-spacing: 0.11em !important;
     font-weight: 600 !important;
 }
 [data-testid="stSidebar"] .stDateInput input {
@@ -107,7 +107,7 @@ section[data-testid="stSidebar"] > div > div:first-child {
     border-color: #e5e7eb !important;
     color: #111827 !important;
     border-radius: 8px !important;
-    font-size: 0.8rem !important;
+    font-size: 0.72rem !important;
 }
 
 /* ── Sidebar nav + data load buttons ── */
@@ -272,12 +272,12 @@ section[data-testid="stSidebar"] > div > div:first-child {
 
 /* ── st.metric ── */
 [data-testid="stMetricValue"] {
-    font-size: 1.3rem !important;
-    font-weight: 800 !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
     color: #111827 !important;
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.68rem !important;
+    font-size: 0.65rem !important;
     color: #9ca3af !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
