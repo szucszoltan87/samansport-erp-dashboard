@@ -917,8 +917,6 @@ def _analytics_sales(load_triggered: bool = False):
                 "start":    start,
                 "end":      end,
             }
-            # Keep the selectbox showing the loaded product on rerun
-            st.session_state["an_prod_sel"] = sel_label
 
     # ── Guard: nothing loaded yet ─────────────────────────────────────────────
     df   = st.session_state.sales_df
