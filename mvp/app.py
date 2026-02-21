@@ -1019,8 +1019,8 @@ def _analytics_sales(load_triggered: bool = False):
     with m4: st.metric("Átl. bruttó ár",    f"{df['Bruttó ár'].mean():,.0f} HUF")
     with m5: st.metric("Aktív periódusok",  f"{grouped['Periódus'].nunique()}")
 
-    # ── Full data table (inline) ──────────────────────────────────────────────
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    # ── Full data table ───────────────────────────────────────────────────────
+    st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
     section_header(
         "Teljes értékesítési adatok",
         f"{display_label}  ·  {len(df):,} tranzakció",
@@ -1028,7 +1028,22 @@ def _analytics_sales(load_triggered: bool = False):
     )
     full = df.copy()
     full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
-    st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
+
+    # Format numeric columns with thousands separator
+    _col_cfg = {}
+    for _c in full.columns:
+        if _c == "kelt":
+            _col_cfg[_c] = st.column_config.TextColumn("Dátum")
+        elif pd.api.types.is_numeric_dtype(full[_c]):
+            _col_cfg[_c] = st.column_config.NumberColumn(_c, format="%,.0f")
+
+    st.dataframe(
+        full.reset_index(drop=True),
+        use_container_width=True,
+        height=400,
+        hide_index=True,
+        column_config=_col_cfg,
+    )
     fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
     csv_bytes = full.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
@@ -1037,7 +1052,6 @@ def _analytics_sales(load_triggered: bool = False):
         file_name=f"ertekesites_{fn_sku}_{meta.get('start', '')}.csv",
         mime="text/csv",
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ── Analytics – Movements view (incl. load button) ────────────────────────────
@@ -1161,8 +1175,25 @@ def render_analytics():
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    load_product_master()   # warm cache; product data used for CSV path validation only
+    load_product_master()   # warm cache
     render_sidebar()
+
+    # ── Auto-load aggregated data on first open (populates Dashboard) ─────────
+    if st.session_state.sales_df is None and not st.session_state.get("_initial_load_done"):
+        st.session_state["_initial_load_done"] = True
+        _today  = datetime.now().date()
+        _start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
+        _end    = st.session_state.get("end_date",   _today)
+        with funny_loader("Dashboard adatok betöltése...", _load_warn(_start, _end)):
+            _df = fetch_sales(None, _start, _end)
+        if _df is not None:
+            st.session_state.sales_df   = _df
+            st.session_state.last_query = {
+                "cikkszam": None,
+                "label":    ALL_PRODUCTS_LABEL,
+                "start":    _start,
+                "end":      _end,
+            }
 
     page = st.session_state.page
     if page == "dashboard":
