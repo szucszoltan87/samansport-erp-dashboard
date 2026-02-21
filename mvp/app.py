@@ -1,6 +1,6 @@
 """
 Tharanis ERP Dashboard – SamanSport
-Modern analytics UI: Dashboard · Analitika · Riport
+Modern analytics UI: Dashboard · Analitika
 """
 
 import contextlib
@@ -742,7 +742,6 @@ def render_sidebar():
         pages = [
             ("dashboard", "grid",      "Dashboard"),
             ("analytics",  "bar-chart", "Analitika"),
-            ("report",     "file-text", "Riport"),
         ]
         for page_id, _, label in pages:
             is_active = st.session_state.page == page_id
@@ -873,28 +872,21 @@ def render_dashboard():
 
 
 # ── Analytics – Sales view ─────────────────────────────────────────────────────
-def _analytics_sales():
+def _analytics_sales(load_triggered: bool = False):
     _today = datetime.now().date()
     start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
     end    = st.session_state.get("end_date",   _today)
 
-    # ── Pre-load: product selector + Betöltése button ────────────────────────
+    # ── Pre-load: product selector (full-width) ───────────────────────────────
     products = load_product_master()
     prod_opts: dict = {ALL_PRODUCTS_LABEL: None}
     if not products.empty:
         for _, r in products.iterrows():
             prod_opts[f"{r['Cikkszám']}  –  {r['Cikknév']}"] = r["Cikkszám"]
 
-    col_sel, col_btn = st.columns([5, 1])
-    with col_sel:
-        sel_label = st.selectbox("Termék", list(prod_opts.keys()), key="an_prod_sel")
-    with col_btn:
-        st.write("")  # align button vertically with selectbox input
-        load_clicked = st.button(
-            "Betöltése", key="an_load_sales", type="primary", use_container_width=True,
-        )
+    sel_label = st.selectbox("Termék", list(prod_opts.keys()), key="an_prod_sel")
 
-    if load_clicked:
+    if load_triggered:
         cikkszam = prod_opts[sel_label]
         warn = _load_warn(start, end)
         with funny_loader("Értékesítési adatok betöltése...", warn):
@@ -1009,29 +1001,25 @@ def _analytics_sales():
     with m4: st.metric("Átl. bruttó ár",    f"{df['Bruttó ár'].mean():,.0f} HUF")
     with m5: st.metric("Aktív periódusok",  f"{grouped['Periódus'].nunique()}")
 
-    # ── Data table dropdown ───────────────────────────────────────────────────
-    with st.expander(f"Adattáblázat  –  {display_label}", expanded=False):
-        tab_agg, tab_full = st.tabs(["Összesített periódusok", "Teljes tranzakciós lista"])
-        with tab_agg:
-            agg_show = grouped.rename(columns={"Periódus": "Periódus", col_name: ytitle})
-            agg_show.columns = ["Periódus", ytitle]
-            st.dataframe(
-                agg_show.reset_index(drop=True),
-                use_container_width=True,
-                height=min(400, max(200, len(agg_show) * 35 + 40)),
-            )
-        with tab_full:
-            full = df.copy()
-            full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
-            st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
-            fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
-            csv = full.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "CSV letöltése",
-                data=csv,
-                file_name=f"ertekesites_{fn_sku}_{meta.get('start', '')}.csv",
-                mime="text/csv",
-            )
+    # ── Full data table (inline) ──────────────────────────────────────────────
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    section_header(
+        "Teljes értékesítési adatok",
+        f"{display_label}  ·  {len(df):,} tranzakció",
+        "file-text",
+    )
+    full = df.copy()
+    full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
+    st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
+    fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
+    csv_bytes = full.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        "CSV letöltése",
+        data=csv_bytes,
+        file_name=f"ertekesites_{fn_sku}_{meta.get('start', '')}.csv",
+        mime="text/csv",
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ── Analytics – Movements view (incl. load button) ────────────────────────────
@@ -1126,7 +1114,16 @@ def _analytics_movements():
 # ── Analytics page ─────────────────────────────────────────────────────────────
 def render_analytics():
     meta = st.session_state.last_query or {}
-    page_header("Analitika", meta.get("label", "—"))
+
+    # Page header + top-right load button on the same row
+    hdr_col, btn_col = st.columns([7, 1])
+    with hdr_col:
+        page_header("Analitika", meta.get("label", "—"))
+    with btn_col:
+        st.write("")
+        load_triggered = st.button(
+            "Betöltése", key="an_load_top", type="primary", use_container_width=True,
+        )
 
     view = st.radio(
         "Adatnézet",
@@ -1138,102 +1135,10 @@ def render_analytics():
     st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
 
     if view == "Értékesítés":
-        _analytics_sales()
+        _analytics_sales(load_triggered=load_triggered)
     else:
         _analytics_movements()
 
-
-# ── Report page ────────────────────────────────────────────────────────────────
-def render_report():
-    meta = st.session_state.last_query or {}
-    page_header("Riport", meta.get("label", "—"))
-
-    tabs_map = []
-    if st.session_state.sales_df is not None:   tabs_map.append("Értékesítés")
-    if st.session_state.mozgas_df is not None:   tabs_map.append("Mozgástörténet")
-
-    if not tabs_map:
-        empty_state("file-text", "Nincs betöltött adat", "Töltse be az adatokat a bal oldali panelből.")
-        return
-
-    tab_objs = st.tabs(tabs_map)
-    tab_idx  = 0
-
-    # ── Sales report ──────────────────────────────────────────────────────────
-    if st.session_state.sales_df is not None:
-        with tab_objs[tab_idx]:
-            tab_idx += 1
-            df   = st.session_state.sales_df
-            meta = st.session_state.last_query or {}
-
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section_header("Összefoglaló statisztikák", "", "bar-chart")
-            stats = pd.DataFrame({
-                "Mutató": [
-                    "Bruttó forgalom (HUF)", "Nettó forgalom (HUF)",
-                    "Értékesített mennyiség (db)", "Átl. bruttó ár (HUF)",
-                    "Átl. nettó ár (HUF)", "Tranzakciók száma",
-                    "Időszak (nap)", "Aktív hónapok",
-                ],
-                "Érték": [
-                    f"{df['Bruttó érték'].sum():,.0f}",
-                    f"{df['Nettó érték'].sum():,.0f}",
-                    f"{df['Mennyiség'].sum():,.0f}",
-                    f"{df['Bruttó ár'].mean():,.0f}",
-                    f"{df['Nettó ár'].mean():,.0f}",
-                    f"{len(df):,}",
-                    str((meta.get("end") - meta.get("start")).days + 1) if meta.get("start") else "—",
-                    f"{df['kelt'].dt.to_period('M').nunique()}",
-                ],
-            })
-            st.dataframe(stats, use_container_width=True, hide_index=True, height=318)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section_header("Teljes értékesítési adatok", f"{len(df):,} sor", "file-text")
-            show = df.copy()
-            show["kelt"] = show["kelt"].dt.strftime("%Y-%m-%d")
-            st.dataframe(show.reset_index(drop=True), use_container_width=True, height=400)
-            csv = show.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "CSV letöltése",
-                data=csv,
-                file_name=f"ertekesites_osszes_{meta.get('start','')}.csv",
-                mime="text/csv",
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Movements report ──────────────────────────────────────────────────────
-    if st.session_state.mozgas_df is not None:
-        with tab_objs[tab_idx]:
-            mdf    = st.session_state.mozgas_df
-            meta_m = st.session_state.last_mozgas_query or {}
-            total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
-            total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
-
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section_header(
-                "Mozgástörténet",
-                f"{len(mdf):,} sor  ·  {meta_m.get('start','')} – {meta_m.get('end','')}",
-                "activity",
-            )
-            c1, c2 = st.columns([1, 3])
-            with c1:
-                st.metric("Beérkező (B)", f"{total_be:,.0f} db")
-                st.metric("Kiadó (K)",    f"{total_ki:,.0f} db")
-                st.metric("Nettó mozgás", f"{total_be - total_ki:+,.0f} db")
-            with c2:
-                show_m = mdf.copy()
-                show_m["kelt"] = show_m["kelt"].dt.strftime("%Y-%m-%d")
-                st.dataframe(show_m.reset_index(drop=True), use_container_width=True, height=320)
-            csv = show_m.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "CSV letöltése",
-                data=csv,
-                file_name=f"mozgas_osszes_{meta_m.get('start','')}.csv",
-                mime="text/csv",
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -1246,8 +1151,6 @@ def main():
         render_dashboard()
     elif page == "analytics":
         render_analytics()
-    elif page == "report":
-        render_report()
 
 
 if __name__ == "__main__":
