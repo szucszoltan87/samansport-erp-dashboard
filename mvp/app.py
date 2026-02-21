@@ -394,45 +394,58 @@ div[role="radiogroup"] { gap: 0.2rem !important; }
     margin-bottom: 1rem;
 }
 
-/* ── Funny loading overlay ── */
-@keyframes spin360 {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+/* ── Professional loading overlay ── */
+@keyframes spinRing {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
-@keyframes floatBounce {
-    0%, 100% { transform: translateY(0px); }
-    50%       { transform: translateY(-14px); }
+@keyframes dashGrow {
+    0%   { stroke-dasharray: 1 150; stroke-dashoffset: 0; }
+    50%  { stroke-dasharray: 90 150; stroke-dashoffset: -35; }
+    100% { stroke-dasharray: 90 150; stroke-dashoffset: -125; }
 }
 .load-overlay {
     position: fixed;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
-    background: rgba(248, 250, 252, 0.96);
+    background: rgba(248, 250, 252, 0.97);
     z-index: 9999;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
+    gap: 1rem;
 }
-.load-emoji-spin  { font-size: 3.5rem; animation: spin360 1.1s linear infinite; display: block; }
-.load-emoji-float { font-size: 3.5rem; animation: floatBounce 0.9s ease-in-out infinite; display: block; }
+.load-spinner-wrap {
+    position: relative;
+    width: 68px;
+    height: 68px;
+}
+.load-ring-svg  { animation: spinRing 2s linear infinite; }
+.load-ring-arc  { animation: dashGrow 1.5s ease-in-out infinite; }
+.load-icon-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.6rem;
+    line-height: 1;
+}
 .load-title {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 0.95rem;
+    font-weight: 600;
     color: #1e40af;
     text-align: center;
     letter-spacing: -0.01em;
 }
 .load-warn {
     font-size: 0.82rem;
-    color: #6b7280;
+    color: #374151;
     text-align: center;
-    max-width: 340px;
-    line-height: 1.55;
-    padding: 0.5rem 1rem;
-    background: #fefce8;
-    border: 1px solid #fde68a;
+    max-width: 380px;
+    line-height: 1.6;
+    padding: 0.65rem 1.1rem;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
     border-radius: 8px;
 }
 </style>
@@ -463,27 +476,30 @@ C = {
     "slate":  "#64748b",
 }
 
-# ── Funny loader ───────────────────────────────────────────────────────────────
-_LOADERS = [
-    ("spin",  "🍕", "Pizzát sütök közben... mindjárt kész!"),
-    ("float", "🦙", "A láma viszi az adatokat... türelem!"),
-    ("spin",  "🚀", "Felszállás folyamatban... hold on tight!"),
-    ("float", "🐹", "A hörcsög fut a kerekén teli erőből..."),
-    ("spin",  "🎠", "A körhinta forog, az adatok érkeznek..."),
-    ("float", "🤿", "Mélytengeri adatbúvárkodás folyamatban..."),
-]
+# ── Professional loading overlay ──────────────────────────────────────────────
+# Center icon rotates randomly between inventory-themed choices each load
+_LOADER_ICONS = ["📦", "🗂️", "📊", "🏷️", "🔄"]
 
 @contextlib.contextmanager
-def funny_loader(label: str = "Betöltés...", warn: str = ""):
-    anim, emoji, _ = random.choice(_LOADERS)
-    css_cls = "load-emoji-spin" if anim == "spin" else "load-emoji-float"
+def funny_loader(label: str = "Adatok betöltése...", warn: str = ""):
+    icon = random.choice(_LOADER_ICONS)
     warn_html = f'<div class="load-warn">{warn}</div>' if warn else ""
     ph = st.empty()
     ph.markdown(
         f'<div class="load-overlay">'
-        f'<span class="{css_cls}">{emoji}</span>'
-        f'<div class="load-title">{label}</div>'
-        f'{warn_html}'
+        f'  <div class="load-spinner-wrap">'
+        f'    <svg class="load-ring-svg" width="68" height="68" viewBox="0 0 68 68"'
+        f'         xmlns="http://www.w3.org/2000/svg">'
+        f'      <circle cx="34" cy="34" r="28" fill="none"'
+        f'              stroke="#dbeafe" stroke-width="5"/>'
+        f'      <circle class="load-ring-arc" cx="34" cy="34" r="28" fill="none"'
+        f'              stroke="#2563eb" stroke-width="5" stroke-linecap="round"'
+        f'              stroke-dasharray="1 175" stroke-dashoffset="0"/>'
+        f'    </svg>'
+        f'    <div class="load-icon-center">{icon}</div>'
+        f'  </div>'
+        f'  <div class="load-title">{label}</div>'
+        f'  {warn_html}'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -678,15 +694,18 @@ def fetch_movements(cikkszam, start, end):
 
 
 def _load_warn(start, end) -> str:
-    """Return a funny warning string if the load will be slow, otherwise empty."""
+    """Return a warning string for potentially slow loads, otherwise empty."""
     days = (end - start).days
     if days > 365 * 3:
         return (
-            "⏳ <b>3+ éves adatot kérsz!</b> Az ERP visszanézett a naptárba "
-            "és kicsit megszédült. Lehet kávézni egyet. ☕"
+            "Hosszú időhorizontot kértél – ez eltarthat egy kicsit. "
+            "Nyújtózz egyet, vagy igyál meg egy kávét, mire visszajössz, kész lesz. ☕"
         )
     if days > 365 * 2:
-        return "📅 2+ éves időszak – az API melegít. Tart egy pillanatot!"
+        return (
+            "2 évnél hosszabb időszakot kértél. "
+            "Az adatok betöltése pár másodpercet vehet igénybe."
+        )
     return ""
 
 
@@ -886,21 +905,39 @@ def _analytics_sales():
     meta = st.session_state.last_query or {}
 
     # ── Product filter ────────────────────────────────────────────────────────
-    sc = find_sku_col(df)
+    sc  = find_sku_col(df)
+    nc  = find_name_col(df)
+    chosen_sku: str | None = None
     if sc:
-        all_skus = sorted(df[sc].dropna().unique().tolist())
+        # Build a label→SKU map so the dropdown shows "CIKKSZÁM – Terméknév"
+        sku_rows = (
+            df[[sc] + ([nc] if nc else [])]
+            .drop_duplicates(subset=[sc])
+            .dropna(subset=[sc])
+            .sort_values(sc)
+        )
+        sku_label_map: dict = {ALL_PRODUCTS_LABEL: None}
+        for _, r in sku_rows.iterrows():
+            if nc and pd.notna(r.get(nc)):
+                lbl = f"{r[sc]}  –  {r[nc]}"
+            else:
+                lbl = str(r[sc])
+            sku_label_map[lbl] = r[sc]
+
+        n_skus = len(sku_label_map) - 1
         info_banner(
-            f"Összes termék betöltve ({len(all_skus):,} db). "
-            "Az alábbi szűrővel szűkíthet egy termékre újratöltés nélkül.",
+            f"Összes termék betöltve ({n_skus:,} db). "
+            "Az alábbi szűrővel egy termékre szűkíthet újratöltés nélkül.",
             "filter",
         )
-        sku_choice = st.selectbox(
+        label_choice = st.selectbox(
             "Termék szűrő",
-            [ALL_PRODUCTS_LABEL] + all_skus,
+            list(sku_label_map.keys()),
             key="an_sku_filter",
         )
-        if sku_choice != ALL_PRODUCTS_LABEL:
-            df = df[df[sc] == sku_choice]
+        chosen_sku = sku_label_map[label_choice]
+        if chosen_sku is not None:
+            df = df[df[sc] == chosen_sku]
 
     # ── Controls row ─────────────────────────────────────────────────────────
     ctrl1, ctrl2, ctrl3 = st.columns([4, 2, 2])
@@ -917,10 +954,13 @@ def _analytics_sales():
     grouped = df2.groupby("Periódus")[col_name].agg(agg_fn).reset_index().sort_values("Periódus")
 
     # ── Chart ─────────────────────────────────────────────────────────────────
+    product_label = (
+        label_choice if (sc and chosen_sku is not None) else meta.get("label", "")
+    )
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     section_header(
         metric,
-        f"{meta.get('label', '')}  ·  {meta.get('start', '')} – {meta.get('end', '')}",
+        f"{product_label}  ·  {meta.get('start', '')} – {meta.get('end', '')}",
         "bar-chart",
     )
     fig = go.Figure()
@@ -951,24 +991,34 @@ def _analytics_sales():
     with m4: st.metric("Átl. bruttó ár",    f"{df['Bruttó ár'].mean():,.0f} HUF")
     with m5: st.metric("Aktív periódusok",  f"{grouped['Periódus'].nunique()}")
 
-    # ── Data table ────────────────────────────────────────────────────────────
-    st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
-    with st.expander("Adattáblázat"):
-        agg_show = grouped.copy()
-        agg_show.columns = ["Periódus", ytitle]
-        st.markdown("**Aggregált adatok**")
-        st.dataframe(agg_show.reset_index(drop=True), use_container_width=True, height=220)
-        st.markdown("**Teljes adatsor**")
-        full = df.copy()
-        full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
-        st.dataframe(full.reset_index(drop=True), use_container_width=True, height=300)
-        csv = full.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "CSV letöltése",
-            data=csv,
-            file_name=f"ertekesites_osszes_{meta.get('start', '')}.csv",
-            mime="text/csv",
-        )
+    # ── Data table (dropdown) ─────────────────────────────────────────────────
+    table_label = (
+        f"Adattáblázat  –  {label_choice}"
+        if (sc and chosen_sku is not None)
+        else "Adattáblázat  –  Összes termék"
+    )
+    with st.expander(table_label, expanded=False):
+        tab_agg, tab_full = st.tabs(["Összesített periódusok", "Teljes tranzakciós lista"])
+        with tab_agg:
+            agg_show = grouped.copy()
+            agg_show.columns = ["Periódus", ytitle]
+            st.dataframe(
+                agg_show.reset_index(drop=True),
+                use_container_width=True,
+                height=min(400, max(200, len(agg_show) * 35 + 40)),
+            )
+        with tab_full:
+            full = df.copy()
+            full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
+            st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
+            fn_sku = chosen_sku.replace("/", "-") if chosen_sku else "osszes"
+            csv = full.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "CSV letöltése",
+                data=csv,
+                file_name=f"ertekesites_{fn_sku}_{meta.get('start', '')}.csv",
+                mime="text/csv",
+            )
 
 
 # ── Analytics – Movements view (incl. load button) ────────────────────────────
