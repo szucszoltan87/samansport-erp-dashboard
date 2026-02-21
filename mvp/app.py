@@ -936,7 +936,14 @@ def _analytics_sales(load_triggered: bool = False):
                 prod_opts[lbl] = r[_sc]
             st.session_state["_prod_opts_cache"] = prod_opts  # cache for subsequent runs
 
-    sel_label = st.selectbox("Termék", list(prod_opts.keys()), key="an_prod_sel")
+    _prod_keys = list(prod_opts.keys())
+    # Determine which product to show: prefer last explicit selection, then last loaded
+    _target = st.session_state.get("_sel_product") or (
+        (st.session_state.last_query or {}).get("label", ALL_PRODUCTS_LABEL)
+    )
+    _sel_idx = _prod_keys.index(_target) if _target in _prod_keys else 0
+    sel_label = st.selectbox("Termék", _prod_keys, index=_sel_idx)
+    st.session_state["_sel_product"] = sel_label   # persist without widget-key conflicts
 
     if load_triggered:
         cikkszam = prod_opts[sel_label]
@@ -951,6 +958,7 @@ def _analytics_sales(load_triggered: bool = False):
                 "start":    start,
                 "end":      end,
             }
+            st.session_state["_sel_product"] = sel_label  # keep shown after rerun
 
     # ── Guard: nothing loaded yet ─────────────────────────────────────────────
     df   = st.session_state.sales_df
