@@ -305,6 +305,7 @@ div[role="radiogroup"] { gap: 0.2rem !important; }
     border-color: #e5e7eb !important;
     border-radius: 8px !important;
     font-size: 0.875rem !important;
+    color: #111827 !important;
 }
 .stSelectbox > label {
     font-size: 0.68rem !important;
@@ -936,17 +937,43 @@ def _analytics_sales(load_triggered: bool = False):
                 prod_opts[lbl] = r[_sc]
             st.session_state["_prod_opts_cache"] = prod_opts  # cache for subsequent runs
 
-    _prod_keys = list(prod_opts.keys())
-    # Determine which product to show: prefer last explicit selection, then last loaded
-    _target = st.session_state.get("_sel_product") or (
-        (st.session_state.last_query or {}).get("label", ALL_PRODUCTS_LABEL)
+    # ── Stable-ID selectbox ───────────────────────────────────────────────────
+    # Store the SHORT cikkszam code (e.g. "4633") as the widget value instead of
+    # the long label string.  Label strings differ between CSV / cache / API and
+    # cause _an_sku not in _sku_opts → stale guard → visible-empty selectbox.
+    _sku_opts: list = []
+    _sku_label_map: dict = {}
+    for _lbl, _sku in prod_opts.items():
+        _code = _sku if _sku is not None else ALL_PRODUCTS_CODE
+        _sku_opts.append(_code)
+        _sku_label_map[_code] = _lbl
+
+    # Resolve which SKU to highlight (prefer last explicit pick, then last loaded)
+    _last_loaded_sku = (st.session_state.last_query or {}).get("cikkszam")
+    _stored_sku      = st.session_state.get("_sel_sku")
+    # _stored_sku may legitimately be ALL_PRODUCTS_CODE (non-falsy), so avoid `or`
+    _target_sku = (
+        _stored_sku if (_stored_sku is not None and _stored_sku in _sku_opts)
+        else (_last_loaded_sku if _last_loaded_sku in _sku_opts else ALL_PRODUCTS_CODE)
     )
-    _sel_idx = _prod_keys.index(_target) if _target in _prod_keys else 0
-    sel_label = st.selectbox("Termék", _prod_keys, index=_sel_idx)
-    st.session_state["_sel_product"] = sel_label   # persist without widget-key conflicts
+    _sel_sku_idx = _sku_opts.index(_target_sku)
+
+    # Guard: delete stale key only – never assign to a widget key before render
+    # (assigning raises StreamlitAPIException in Streamlit 1.29).
+    if "_an_sku" in st.session_state and st.session_state["_an_sku"] not in _sku_opts:
+        del st.session_state["_an_sku"]
+
+    sel_sku   = st.selectbox(
+        "Termék", _sku_opts,
+        format_func=lambda c: _sku_label_map.get(c, c),
+        index=_sel_sku_idx, key="_an_sku",
+    )
+    sel_label = _sku_label_map.get(sel_sku, ALL_PRODUCTS_LABEL)
+    st.session_state["_sel_sku"]     = sel_sku
+    st.session_state["_sel_product"] = sel_label  # keep for legacy references
 
     if load_triggered:
-        cikkszam = prod_opts[sel_label]
+        cikkszam = None if sel_sku == ALL_PRODUCTS_CODE else sel_sku
         warn = _load_warn(start, end)
         with funny_loader("Értékesítési adatok betöltése...", warn):
             df_new = fetch_sales(cikkszam, start, end)
@@ -958,7 +985,8 @@ def _analytics_sales(load_triggered: bool = False):
                 "start":    start,
                 "end":      end,
             }
-            st.session_state["_sel_product"] = sel_label  # keep shown after rerun
+            st.session_state["_sel_sku"]     = sel_sku
+            st.session_state["_sel_product"] = sel_label
 
     # ── Guard: nothing loaded yet ─────────────────────────────────────────────
     df   = st.session_state.sales_df

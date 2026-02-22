@@ -1,0 +1,675 @@
+{
+  "projectName": "SamanSport Inventory Dashboard",
+  "description": "Modern web application for Tharanis ERP inventory reporting and analysis",
+  "techStack": {
+    "frontend": "Next.js 14 + React 18 + TypeScript",
+    "styling": "Tailwind CSS + shadcn/ui",
+    "api": "tRPC + React Query",
+    "charts": "Recharts + Tremor",
+    "deployment": "Vercel"
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Foundation & API Integration",
+      "duration": "Week 1-2",
+      "steps": [
+        {
+          "step": 1,
+          "name": "Project Initialization",
+          "estimatedTime": "Day 1 (4-6 hours)",
+          "tasks": [
+            {
+              "task": "Create Next.js project",
+              "command": "npx create-next-app@latest samansport-inventory --typescript --tailwind --app --src-dir --import-alias \"@/*\"",
+              "description": "Initialize Next.js 14 with TypeScript, Tailwind CSS, App Router, and src directory"
+            },
+            {
+              "task": "Install core dependencies",
+              "commands": [
+                "cd samansport-inventory",
+                "pnpm add @trpc/server @trpc/client @trpc/react-query @trpc/next @tanstack/react-query",
+                "pnpm add zod react-hook-form @hookform/resolvers",
+                "pnpm add recharts @tremor/react",
+                "pnpm add date-fns zustand",
+                "pnpm add soap fast-xml-parser"
+              ],
+              "description": "Install tRPC, React Query, charting libraries, and SOAP client"
+            },
+            {
+              "task": "Install shadcn/ui",
+              "commands": [
+                "pnpm dlx shadcn-ui@latest init",
+                "pnpm dlx shadcn-ui@latest add button card table input select dialog",
+                "pnpm dlx shadcn-ui@latest add dropdown-menu tabs badge skeleton"
+              ],
+              "description": "Set up shadcn/ui component library"
+            },
+            {
+              "task": "Create directory structure",
+              "directories": [
+                "src/server/api/routers",
+                "src/server/services",
+                "src/components/ui",
+                "src/components/dashboard",
+                "src/components/charts",
+                "src/components/inventory",
+                "src/components/layout",
+                "src/lib/trpc",
+                "src/types"
+              ],
+              "description": "Set up the complete folder structure"
+            }
+          ],
+          "deliverables": [
+            "Next.js project initialized",
+            "All dependencies installed",
+            "Project structure created",
+            "Dev server running successfully"
+          ]
+        },
+        {
+          "step": 2,
+          "name": "Configure tRPC",
+          "estimatedTime": "Day 1 (2-3 hours)",
+          "tasks": [
+            {
+              "task": "Create tRPC server configuration",
+              "file": "src/server/api/trpc.ts",
+              "description": "Set up tRPC context and base procedures"
+            },
+            {
+              "task": "Create main tRPC router",
+              "file": "src/server/api/root.ts",
+              "description": "Set up the root router that combines all sub-routers"
+            },
+            {
+              "task": "Create tRPC API route",
+              "file": "src/app/api/trpc/[trpc]/route.ts",
+              "description": "Set up Next.js API route handler for tRPC"
+            },
+            {
+              "task": "Create tRPC client",
+              "file": "src/lib/trpc/client.ts",
+              "description": "Configure the client-side tRPC instance"
+            },
+            {
+              "task": "Create React Query provider",
+              "file": "src/lib/trpc/provider.tsx",
+              "description": "Wrap app with React Query and tRPC provider"
+            },
+            {
+              "task": "Update root layout",
+              "file": "src/app/layout.tsx",
+              "description": "Add TRPCProvider to the app"
+            }
+          ],
+          "deliverables": [
+            "tRPC configured end-to-end",
+            "Test endpoint working",
+            "Type safety verified"
+          ]
+        },
+        {
+          "step": 3,
+          "name": "Build Tharanis SOAP Client",
+          "estimatedTime": "Day 2-3 (8-12 hours)",
+          "tasks": [
+            {
+              "task": "Create TypeScript types for Tharanis API",
+              "file": "src/types/tharanis.ts",
+              "description": "Define interfaces for all API request/response types",
+              "types": [
+                "RaktariMozgasRequest",
+                "RaktariMozgasResponse",
+                "KeszletRequest",
+                "KeszletResponse",
+                "CikkRequest",
+                "CikkResponse",
+                "BeszerzesRequest",
+                "BeszerzesResponse"
+              ]
+            },
+            {
+              "task": "Create TharanisClient service",
+              "file": "src/server/services/tharanis-client.ts",
+              "description": "Build SOAP client wrapper with authentication",
+              "methods": [
+                "authenticate()",
+                "getRaktariMozgas(startDate, endDate)",
+                "getKeszlet(warehouseId?)",
+                "getCikk(productId?)",
+                "getBeszerzes(startDate, endDate)",
+                "getSzallitolevel(startDate, endDate)"
+              ]
+            },
+            {
+              "task": "Create environment variables",
+              "file": ".env.local",
+              "variables": [
+                "THARANIS_API_URL=https://login.tharanis.hu/apiv3.php",
+                "THARANIS_API_KEY=your_api_key",
+                "THARANIS_USERNAME=your_username",
+                "THARANIS_PASSWORD=your_password"
+              ],
+              "description": "Configure API credentials"
+            },
+            {
+              "task": "Test SOAP client",
+              "file": "src/server/services/__tests__/tharanis-client.test.ts",
+              "description": "Write tests for authentication and basic API calls",
+              "tests": [
+                "Authentication succeeds",
+                "Fetch inventory movements",
+                "Fetch stock levels",
+                "Handle API errors gracefully"
+              ]
+            }
+          ],
+          "deliverables": [
+            "SOAP client successfully connects to Tharanis",
+            "All API endpoints mapped",
+            "Error handling implemented",
+            "Tests passing"
+          ]
+        },
+        {
+          "step": 4,
+          "name": "Create Dashboard Layout",
+          "estimatedTime": "Day 4-5 (6-8 hours)",
+          "tasks": [
+            {
+              "task": "Create Sidebar component",
+              "file": "src/components/layout/Sidebar.tsx",
+              "description": "Navigation sidebar with links to all pages",
+              "features": [
+                "Dashboard link",
+                "ABC Analysis link",
+                "Inventory Health link",
+                "Seasonality link",
+                "Products link",
+                "Collapsible on mobile"
+              ]
+            },
+            {
+              "task": "Create Header component",
+              "file": "src/components/layout/Header.tsx",
+              "description": "Top header with date picker and actions",
+              "features": [
+                "Date range selector",
+                "Dark mode toggle",
+                "Refresh button",
+                "User menu"
+              ]
+            },
+            {
+              "task": "Create dashboard layout",
+              "file": "src/app/(dashboard)/layout.tsx",
+              "description": "Main layout with sidebar and header"
+            },
+            {
+              "task": "Create home page",
+              "file": "src/app/(dashboard)/page.tsx",
+              "description": "Main dashboard page (will add KPIs later)"
+            },
+            {
+              "task": "Style global CSS",
+              "file": "src/styles/globals.css",
+              "description": "Add custom styles, dark mode variables, animations"
+            }
+          ],
+          "deliverables": [
+            "Responsive layout working",
+            "Sidebar navigation functional",
+            "Dark mode implemented",
+            "Mobile-friendly design"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Inventory Analytics",
+      "duration": "Week 2-3",
+      "steps": [
+        {
+          "step": 5,
+          "name": "Build Analytics Service",
+          "estimatedTime": "Day 6-7 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create analytics types",
+              "file": "src/types/analytics.ts",
+              "description": "Define types for ABC analysis, dead stock, etc.",
+              "types": [
+                "ABCAnalysis",
+                "ProductTier",
+                "DeadStock",
+                "SlowMovingInventory",
+                "OverstockItem",
+                "SeasonalityData"
+              ]
+            },
+            {
+              "task": "Port Python analysis to TypeScript",
+              "file": "src/server/services/analytics.ts",
+              "description": "Implement all analytics calculations",
+              "functions": [
+                "calculateABCTiers(salesData)",
+                "identifyDeadStock(inventory, sales)",
+                "findSlowMovingProducts(inventory, sales)",
+                "detectOverstock(inventory, avgSales)",
+                "analyzeSeasonality(salesData)",
+                "calculateMonthlyTrends(salesData)"
+              ]
+            },
+            {
+              "task": "Create analytics router",
+              "file": "src/server/api/routers/analytics.ts",
+              "description": "tRPC endpoints for analytics",
+              "endpoints": [
+                "getABCAnalysis",
+                "getDeadStock",
+                "getSlowMovingItems",
+                "getOverstock",
+                "getSeasonality"
+              ]
+            },
+            {
+              "task": "Write unit tests",
+              "file": "src/server/services/__tests__/analytics.test.ts",
+              "description": "Test analytics calculations against Python results"
+            }
+          ],
+          "deliverables": [
+            "All analytics logic ported to TypeScript",
+            "Results match Python analysis",
+            "Unit tests passing",
+            "Performance optimized"
+          ]
+        },
+        {
+          "step": 6,
+          "name": "Build KPI Dashboard",
+          "estimatedTime": "Day 8-9 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create KPI Card component",
+              "file": "src/components/dashboard/KPICard.tsx",
+              "description": "Reusable card for displaying KPIs",
+              "props": [
+                "title",
+                "value",
+                "change",
+                "trend",
+                "icon"
+              ]
+            },
+            {
+              "task": "Create Stats Grid component",
+              "file": "src/components/dashboard/StatsGrid.tsx",
+              "description": "Grid layout for KPI cards"
+            },
+            {
+              "task": "Create Date Range Picker",
+              "file": "src/components/dashboard/DateRangePicker.tsx",
+              "description": "Date range selector with presets"
+            },
+            {
+              "task": "Update dashboard page",
+              "file": "src/app/(dashboard)/page.tsx",
+              "description": "Display KPIs using tRPC queries",
+              "kpis": [
+                "Total Products",
+                "Dead Stock Count & Value",
+                "Slow-Moving Count",
+                "Overstock Count",
+                "Monthly Sales Trend"
+              ]
+            }
+          ],
+          "deliverables": [
+            "Dashboard displays real-time KPIs",
+            "Date filtering works",
+            "Loading states implemented",
+            "Error handling in place"
+          ]
+        },
+        {
+          "step": 7,
+          "name": "Build ABC Analysis View",
+          "estimatedTime": "Day 10-11 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create Pareto Chart component",
+              "file": "src/components/charts/ParetoChart.tsx",
+              "description": "Interactive Pareto diagram with Recharts",
+              "features": [
+                "Bar chart for product sales",
+                "Line chart for cumulative %",
+                "Hover tooltips",
+                "Tier color coding"
+              ]
+            },
+            {
+              "task": "Create ABC Analysis page",
+              "file": "src/app/(dashboard)/abc-analysis/page.tsx",
+              "description": "Full ABC analysis view",
+              "sections": [
+                "Pareto chart",
+                "Tier distribution stats",
+                "Product table with tiers",
+                "Search and filters"
+              ]
+            },
+            {
+              "task": "Add Excel export",
+              "file": "src/lib/excel-export.ts",
+              "description": "Export ABC analysis to Excel",
+              "library": "xlsx or exceljs"
+            }
+          ],
+          "deliverables": [
+            "Pareto chart working",
+            "Product tiers displayed",
+            "Excel export functional",
+            "Responsive design"
+          ]
+        },
+        {
+          "step": 8,
+          "name": "Build Inventory Health View",
+          "estimatedTime": "Day 12-13 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create Inventory Status Badge",
+              "file": "src/components/inventory/InventoryStatusBadge.tsx",
+              "description": "Color-coded status indicator",
+              "statuses": [
+                "dead-stock (red)",
+                "slow-moving (yellow)",
+                "overstock (orange)",
+                "normal (green)"
+              ]
+            },
+            {
+              "task": "Create Dead Stock Table",
+              "file": "src/components/inventory/DeadStockTable.tsx",
+              "description": "Table component for dead stock items",
+              "columns": [
+                "Product Code",
+                "Product Name",
+                "Quantity",
+                "Estimated Value",
+                "Last Sale Date",
+                "Months Without Sales"
+              ]
+            },
+            {
+              "task": "Create Inventory Health page",
+              "file": "src/app/(dashboard)/inventory-health/page.tsx",
+              "description": "Complete inventory health dashboard",
+              "sections": [
+                "Summary stats",
+                "Dead stock table",
+                "Slow-moving table",
+                "Overstock table",
+                "Status filters"
+              ]
+            }
+          ],
+          "deliverables": [
+            "All inventory issues displayed",
+            "Tables sortable and filterable",
+            "Status badges working",
+            "Export functionality"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Visualizations & Reports",
+      "duration": "Week 3-4",
+      "steps": [
+        {
+          "step": 9,
+          "name": "Build Seasonality View",
+          "estimatedTime": "Day 14-15 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create Seasonality Chart",
+              "file": "src/components/charts/SeasonalityChart.tsx",
+              "description": "Monthly sales trend line chart"
+            },
+            {
+              "task": "Create Heatmap Chart",
+              "file": "src/components/charts/HeatmapChart.tsx",
+              "description": "Sales heatmap by month/year"
+            },
+            {
+              "task": "Create Trend Line Chart",
+              "file": "src/components/charts/TrendLineChart.tsx",
+              "description": "Year-over-year comparison"
+            },
+            {
+              "task": "Create Seasonality page",
+              "file": "src/app/(dashboard)/seasonality/page.tsx",
+              "description": "Full seasonality analysis view",
+              "charts": [
+                "Monthly sales trend",
+                "Year-over-year comparison",
+                "Sales heatmap",
+                "Average by month"
+              ]
+            }
+          ],
+          "deliverables": [
+            "All seasonality charts working",
+            "Interactive filtering",
+            "Year selection",
+            "Export charts as images"
+          ]
+        },
+        {
+          "step": 10,
+          "name": "Build Product Search & Detail",
+          "estimatedTime": "Day 16-17 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create Product Search Bar",
+              "file": "src/components/inventory/ProductSearchBar.tsx",
+              "description": "Search with autocomplete",
+              "features": [
+                "Search by code or name",
+                "Autocomplete suggestions",
+                "Debounced input",
+                "Keyboard navigation"
+              ]
+            },
+            {
+              "task": "Create products router",
+              "file": "src/server/api/routers/products.ts",
+              "description": "tRPC endpoints for product operations",
+              "endpoints": [
+                "search(query)",
+                "getById(id)",
+                "getHistory(id, dateRange)"
+              ]
+            },
+            {
+              "task": "Create Products page",
+              "file": "src/app/(dashboard)/products/page.tsx",
+              "description": "Product search and list view"
+            },
+            {
+              "task": "Create Product Detail page",
+              "file": "src/app/(dashboard)/products/[id]/page.tsx",
+              "description": "Individual product analytics",
+              "sections": [
+                "Product info card",
+                "Sales history chart",
+                "Tier badge",
+                "Inventory turnover",
+                "Seasonal pattern",
+                "Recent transactions"
+              ]
+            }
+          ],
+          "deliverables": [
+            "Product search working",
+            "Autocomplete functional",
+            "Product detail page complete",
+            "All metrics displayed"
+          ]
+        },
+        {
+          "step": 11,
+          "name": "Add Report Generation",
+          "estimatedTime": "Day 18-19 (8-10 hours)",
+          "tasks": [
+            {
+              "task": "Create PDF generator service",
+              "file": "src/server/services/pdf-generator.ts",
+              "description": "Generate PDF reports with charts",
+              "library": "puppeteer or pdfkit",
+              "templates": [
+                "Executive Summary",
+                "Detailed Analysis",
+                "ABC Analysis Report",
+                "Inventory Health Report"
+              ]
+            },
+            {
+              "task": "Create reports router",
+              "file": "src/server/api/routers/reports.ts",
+              "description": "tRPC endpoints for report generation",
+              "endpoints": [
+                "generatePDF(type, dateRange)",
+                "generateExcel(type, dateRange)"
+              ]
+            },
+            {
+              "task": "Add report buttons to pages",
+              "description": "Add export buttons to all major views"
+            }
+          ],
+          "deliverables": [
+            "PDF reports generated with charts",
+            "Excel exports working",
+            "Multiple report templates",
+            "Download functionality"
+          ]
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Polish & Deploy",
+      "duration": "Week 4-5",
+      "steps": [
+        {
+          "step": 12,
+          "name": "Performance Optimization",
+          "estimatedTime": "Day 20 (6-8 hours)",
+          "tasks": [
+            {
+              "task": "Implement React Query caching",
+              "description": "Configure staleTime, cacheTime for all queries"
+            },
+            {
+              "task": "Add pagination to tables",
+              "description": "Implement virtual scrolling for large datasets"
+            },
+            {
+              "task": "Lazy load charts",
+              "description": "Code split chart components"
+            },
+            {
+              "task": "Optimize bundle size",
+              "commands": [
+                "npm run build",
+                "npm run analyze"
+              ],
+              "description": "Analyze and reduce bundle size"
+            }
+          ],
+          "deliverables": [
+            "Dashboard loads in <2 seconds",
+            "API responses <500ms",
+            "Lighthouse score >90",
+            "Bundle size optimized"
+          ]
+        },
+        {
+          "step": 13,
+          "name": "Deploy to Vercel",
+          "estimatedTime": "Day 21 (4-6 hours)",
+          "tasks": [
+            {
+              "task": "Create Vercel account",
+              "description": "Sign up at vercel.com"
+            },
+            {
+              "task": "Connect Git repository",
+              "description": "Link GitHub/GitLab repo to Vercel"
+            },
+            {
+              "task": "Configure environment variables",
+              "description": "Add all .env.local variables to Vercel dashboard"
+            },
+            {
+              "task": "Deploy",
+              "command": "git push origin main",
+              "description": "Push to main branch triggers auto-deploy"
+            },
+            {
+              "task": "Test production deployment",
+              "description": "Verify all features work in production"
+            },
+            {
+              "task": "Set up custom domain (optional)",
+              "description": "Configure DNS for custom domain"
+            }
+          ],
+          "deliverables": [
+            "App deployed to Vercel",
+            "All features working in production",
+            "Environment variables configured",
+            "Custom domain set up (optional)"
+          ]
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "phase1": [
+      "Successfully authenticate with Tharanis API",
+      "Fetch inventory movements for a date range",
+      "Fetch current stock levels",
+      "Parse XML responses correctly",
+      "Handle API errors gracefully"
+    ],
+    "phase2": [
+      "ABC analysis produces correct tier classifications",
+      "Dead stock detection matches Python analysis results",
+      "Seasonality calculations are accurate",
+      "Performance: Process 10,000+ products in <3 seconds"
+    ],
+    "phase3": [
+      "Dashboard loads in <2 seconds",
+      "All charts render correctly",
+      "Tables support pagination (100 rows per page)",
+      "Responsive on mobile, tablet, desktop",
+      "Dark mode works across all pages"
+    ],
+    "phase4": [
+      "Deploy to Vercel successfully",
+      "Environment variables configured",
+      "API calls work from production",
+      "Performance: Lighthouse score >90"
+    ]
+  },
+  "estimatedTimeline": "4 weeks",
+  "estimatedCost": "$20-50/month (Vercel hosting)"
+}
