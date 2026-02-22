@@ -1,0 +1,308 @@
+{
+  "name": "[SamanSport] - Tharanis API Connector",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## [SamanSport] - Tharanis API Connector\n\n**Sub-workflow** called by other SamanSport workflows to query the Tharanis ERP V3 SOAP API.\n\n**Primary use case:** `kimeno_szamla` (outgoing invoice analytics — all 83 columns matching the Tharanis platform export)\n\n**Input:** entity, szurok (filters array), limit, adatok, action\n\n**API:** V3 SOAP at login.tharanis.hu/apiv3.php\n\n**Auto-pagination:** Fetches all pages automatically. Loop increments `oldal` until fewer than `limit` records are returned.\n\n**Response flow:** SOAP XML → parse envelope → extract inner XML → parse fej/tetelek records → accumulate across pages → output flat array",
+        "height": 260,
+        "width": 540
+      },
+      "id": "sticky-main",
+      "name": "Workflow Info",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger",
+      "name": "When Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize Pagination — set page=0 and pass through all input params\nconst item = $input.first().json || {};\n\n// Clear any stale accumulated data from previous runs\nconst staticData = $getWorkflowStaticData('global');\nstaticData.accumulatedRecords = [];\nstaticData.currentPage = 0;\nstaticData.totalFetched = 0;\n\n// Pass through all original input + set initial page\nreturn [{\n  json: {\n    ...item,\n    oldal: 0\n  }\n}];\n"
+      },
+      "id": "init-pagination",
+      "name": "Initialize Pagination",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node: Build SOAP Envelope\nconst item = $input.first().json || {};\n\n// --- Credentials (prefer passing these in from the caller workflow) ---\nconst UGYFELKOD = item.UGYFELKOD ?? item.ugyfelkod ?? item.UGYFEL_AZON ?? item.ugyfel_azon ?? '7354';\nconst CEGKOD    = item.CEGKOD    ?? item.cegkod    ?? 'ab';\n\n// V3 uses API key, V2 uses password\nconst APIKULCS  = item.APIKULCS  ?? item.apikulcs  ?? 'mcOEBCimvtYpIEpik1mxnG3P4xrq0VwLnLJ3zR';\nconst JELSZO    = item.JELSZO    ?? item.jelszo    ?? 'Zsanii';\n\n// --- Request inputs ---\nconst entity  = (item.entity ?? item.forrasCel ?? item.forras_cel ?? 'cikk').toString().trim();\nconst filters = (item.filters ?? item.filter ?? '').toString();\n\nconst useV3 = !!APIKULCS;\n\nconst toCdata = (s) => {\n  const str = (s ?? '').toString();\n  if (str.includes('<![CDATA[')) return str;\n  return `<![CDATA[${str}]]>`;\n};\n\nconst xmlEncode = (s) => (s ?? '').toString()\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;')\n  .replace(/\\\"/g, '&quot;')\n  .replace(/'/g, '&apos;');\n\nfunction buildLekerXmlV3(raw) {\n  const s = (raw ?? '').toString().trim();\n  if (s && s.startsWith('<')) return s;\n\n  const szurok = item.szurok ?? item.filtersArr ?? item.filters_array;\n  let szurokXml = '';\n  if (Array.isArray(szurok) && szurok.length) {\n    const inner = szurok\n      .map(f => {\n        const mezo = (f.mezo ?? f.field ?? '').toString().trim();\n        const ertek = (f.ertek ?? f.value ?? '').toString();\n        const relacio = (f.relacio ?? f.operator ?? '=').toString();\n        if (!mezo) return '';\n        return `<szuro><mezo>${mezo}</mezo><relacio>${xmlEncode(relacio)}</relacio><ertek>${xmlEncode(ertek)}</ertek></szuro>`;\n      })\n      .filter(Boolean)\n      .join('');\n    if (inner) szurokXml = `<szurok>${inner}</szurok>`;\n  }\n\n  // --- adatok: supports both object { key: val } and scalar (e.g. 1 for keszlet) ---\n  const adatok = item.adatok ?? item.data;\n  let adatokXml = '';\n  if (adatok !== undefined && adatok !== null && adatok !== '') {\n    if (typeof adatok === 'object') {\n      const inner = Object.entries(adatok)\n        .map(([k, v]) => `<${k}>${xmlEncode(String(v))}</${k}>`)\n        .join('');\n      if (inner) adatokXml = `<adatok>${inner}</adatok>`;\n    } else {\n      // Scalar value — e.g. adatok=1 for keszlet physical stock\n      adatokXml = `<adatok>${xmlEncode(String(adatok))}</adatok>`;\n    }\n  }\n\n  const limit = Number.isFinite(+item.limit) ? String(+item.limit) : '200';\n  const oldal = Number.isFinite(+item.oldal) ? String(+item.oldal) : (Number.isFinite(+item.page) ? String(+item.page) : '0');\n\n  return `<leker><limit>${limit}</limit><oldal>${oldal}</oldal>${szurokXml}${adatokXml}</leker>`;\n}\n\nlet soapBody = '';\nlet funcName = '';\nlet apiVersion = '';\nlet endpointUrl = '';\n\nif (useV3) {\n  apiVersion = 'v3';\n  endpointUrl = 'https://login.tharanis.hu/apiv3.php';\n\n  const action = (item.action ?? item.funcName ?? 'leker').toString().trim();\n  funcName = action;\n\n  const rawXml = item.xml ?? item.queryXml ?? item.payloadXml ?? item.filtersXml ?? item.lekerXml ?? '';\n  const xmlParam =\n    action === 'leker'\n      ? buildLekerXmlV3(rawXml || filters)\n      : (rawXml || '').toString().trim();\n\n  if ((action !== 'leker') && !xmlParam) {\n    throw new Error(`V3 \"${action}\" requires an XML payload.`);\n  }\n\n  const param4Value = toCdata(xmlParam);\n\n  soapBody = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<SOAP-ENV:Envelope\n  xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"\n  xmlns:ns1=\"urn://apiv3\"\n  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n  <SOAP-ENV:Body>\n    <ns1:${funcName}>\n      <param0 xsi:type=\"xsd:string\">${UGYFELKOD}</param0>\n      <param1 xsi:type=\"xsd:string\">${CEGKOD}</param1>\n      <param2 xsi:type=\"xsd:string\">${APIKULCS}</param2>\n      <param3 xsi:type=\"xsd:string\">${entity}</param3>\n      <param4 xsi:type=\"xsd:string\">${param4Value}</param4>\n    </ns1:${funcName}>\n  </SOAP-ENV:Body>\n</SOAP-ENV:Envelope>`;\n} else {\n  apiVersion = 'v2';\n  endpointUrl = 'https://login.tharanis.hu/kapcs.php';\n\n  const functionMap = {\n    cikk: 'lekerd_cikk',\n    keszlet: 'lekerd_keszlet',\n    arak: 'lekerd_arak',\n    arkesz: 'lekerd_arkesz',\n    kateg: 'lekerd_kateg',\n    gyarto: 'lekerd_gyarto',\n    beszido: 'lekerd_beszido',\n  };\n\n  funcName = functionMap[entity] || entity;\n\n  let params = '';\n  if (entity === 'cikk') {\n    params = `\\n      <param0 xsi:type=\"xsd:string\">${UGYFELKOD}</param0>\\n      <param1 xsi:type=\"xsd:string\">${CEGKOD}</param1>\\n      <param2 xsi:type=\"xsd:string\">${JELSZO}</param2>\\n      <param3 xsi:type=\"xsd:string\"></param3>\\n      <param4 xsi:type=\"xsd:string\">${filters}</param4>\\n      <param5 xsi:type=\"xsd:string\">1</param5>\\n      <param6 xsi:type=\"xsd:string\"></param6>\\n      <param7 xsi:type=\"xsd:string\">hu</param7>`;\n  } else if (entity === 'keszlet') {\n    params = `\\n      <param0 xsi:type=\"xsd:string\">${UGYFELKOD}</param0>\\n      <param1 xsi:type=\"xsd:string\">${CEGKOD}</param1>\\n      <param2 xsi:type=\"xsd:string\">${JELSZO}</param2>\\n      <param3 xsi:type=\"xsd:string\">${filters}</param3>\\n      <param4 xsi:type=\"xsd:string\"></param4>`;\n  } else if (entity === 'arkesz') {\n    params = `\\n      <param0 xsi:type=\"xsd:string\">${UGYFELKOD}</param0>\\n      <param1 xsi:type=\"xsd:string\">${CEGKOD}</param1>\\n      <param2 xsi:type=\"xsd:string\">${JELSZO}</param2>\\n      <param3 xsi:type=\"xsd:string\">1</param3>\\n      <param4 xsi:type=\"xsd:string\">HUF</param4>\\n      <param5 xsi:type=\"xsd:string\">${filters}</param5>\\n      <param6 xsi:type=\"xsd:string\"></param6>`;\n  } else {\n    params = `\\n      <param0 xsi:type=\"xsd:string\">${UGYFELKOD}</param0>\\n      <param1 xsi:type=\"xsd:string\">${CEGKOD}</param1>\\n      <param2 xsi:type=\"xsd:string\">${JELSZO}</param2>`;\n  }\n\n  soapBody = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<SOAP-ENV:Envelope\\n  xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"\\n  xmlns:ns1=\"urn://kapcs\"\\n  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\\n  xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\\n  <SOAP-ENV:Body>\\n    <ns1:${funcName}>${params}\\n    </ns1:${funcName}>\\n  </SOAP-ENV:Body>\\n</SOAP-ENV:Envelope>`;\n}\n\nreturn [{\n  json: {\n    apiVersion,\n    endpointUrl,\n    entity,\n    funcName,\n    soapBody,\n    _originalInput: { ...item }\n  },\n}];\n"
+      },
+      "id": "build-soap",
+      "name": "Build SOAP Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.endpointUrl }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/xml; charset=utf-8",
+        "body": "={{ $json.soapBody }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "soap-request",
+      "name": "Send SOAP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "parse-soap",
+      "name": "Parse SOAP Envelope",
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        896,
+        128
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Response Data — Tharanis V3/V2, handles nested structures (fej, tetelek)\nconst parsed = $input.first()?.json ?? {};\n\nconst stripXmlHeader = (s) => (s ?? '').toString().replace(/^\\s*<\\?xml[^?]*\\?>\\s*/i, '').trim();\nconst decodeCdata = (s) => {\n  const t = (s ?? '').toString().trim();\n  const m = t.match(/^<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>$/);\n  return (m ? m[1] : t).trim();\n};\nconst getTagValue = (xml, tag) => {\n  const re = new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`, 'i');\n  const m = (xml ?? '').toString().match(re);\n  return decodeCdata(m ? m[1] : '');\n};\nfunction extractRoot(xml) {\n  const x = stripXmlHeader(xml);\n  const m = x.match(/^\\s*<([A-Za-z0-9_:-]+)/);\n  return { xml: x, root: m ? m[1] : '' };\n}\nfunction getInnerOfRoot(xml, rootName) {\n  const x = stripXmlHeader(xml);\n  const openRe = new RegExp(`<${rootName}[^>]*>`, 'i');\n  const closeRe = new RegExp(`</${rootName}>`, 'i');\n  const openM = x.match(openRe);\n  const closeM = x.match(closeRe);\n  if (!openM || !closeM) return '';\n  const start = x.indexOf(openM[0]) + openM[0].length;\n  const end = x.lastIndexOf(closeM[0]);\n  return end > start ? x.slice(start, end) : '';\n}\nfunction extractTopLevelElements(containerXml) {\n  const xml = (containerXml ?? '').toString();\n  const elements = [];\n  const tagRe = /<[^>]+>/g;\n  let m, stack = [], topStart = -1, topTag = '';\n  while ((m = tagRe.exec(xml)) !== null) {\n    const t = m[0], i = m.index;\n    if (t.startsWith('<?') || t.startsWith('<!')) continue;\n    const isClose = t[1] === '/';\n    const isSelfClose = t.endsWith('/>');\n    const nm = t.match(/^<\\/?\\s*([A-Za-z0-9_:-]+)/);\n    if (!nm) continue;\n    const name = nm[1];\n    if (!isClose && isSelfClose) {\n      if (!stack.length) elements.push({ tag: name, xml: t });\n    } else if (!isClose) {\n      if (!stack.length) { topStart = i; topTag = name; }\n      stack.push(name);\n    } else {\n      while (stack.length && stack[stack.length - 1] !== name) stack.pop();\n      if (stack.length) stack.pop();\n      if (!stack.length && topStart !== -1) {\n        elements.push({ tag: topTag, xml: xml.slice(topStart, i + t.length) });\n        topStart = -1;\n      }\n    }\n  }\n  return elements;\n}\nfunction parseSimpleFields(elemObj) {\n  const xml = typeof elemObj === 'string' ? elemObj : elemObj.xml;\n  const { root } = extractRoot(xml);\n  if (!root) return {};\n  const inner = getInnerOfRoot(xml, root);\n  if (!inner) return {};\n  const fields = {};\n  for (const child of extractTopLevelElements(inner)) {\n    const ci = getInnerOfRoot(child.xml, child.tag);\n    fields[child.tag] = decodeCdata((ci ?? '').trim());\n  }\n  return fields;\n}\nfunction parseRecordFromXml(elemObj) {\n  const xml = typeof elemObj === 'string' ? elemObj : elemObj.xml;\n  const { root } = extractRoot(xml);\n  if (!root) return { record: { __raw: xml }, lineItems: [] };\n  const inner = getInnerOfRoot(xml, root);\n  if (!inner) return { record: { __tag: root }, lineItems: [] };\n  const record = { __tag: root };\n  let lineItems = [];\n  const children = extractTopLevelElements(inner);\n  for (const child of children) {\n    const ci = getInnerOfRoot(child.xml, child.tag);\n    const trimmed = (ci ?? '').trim();\n    const decoded = decodeCdata(trimmed);\n    if (decoded.includes('<') && /<[A-Za-z]/.test(decoded)) {\n      const gcs = extractTopLevelElements(decoded);\n      if (!gcs.length) {\n        const hu = decoded.match(/<hu>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([\\s\\S]*?))<\\/hu>/i);\n        record[child.tag] = hu ? (hu[1] ?? hu[2] ?? '').trim() : decoded;\n        continue;\n      }\n      const huEl = gcs.find(gc => gc.tag === 'hu');\n      if (huEl) {\n        record[child.tag] = decodeCdata((getInnerOfRoot(huEl.xml, 'hu') ?? '').trim());\n        continue;\n      }\n      const tagSet = new Set(gcs.map(gc => gc.tag));\n      if (tagSet.size === 1) {\n        const items = gcs.map(gc => parseSimpleFields(gc));\n        if (child.tag === 'tetelek') {\n          lineItems = items;\n        } else {\n          record[child.tag] = items;\n        }\n      } else {\n        for (const gc of gcs) {\n          const gcI = getInnerOfRoot(gc.xml, gc.tag);\n          record[`${child.tag}_${gc.tag}`] = decodeCdata((gcI ?? '').trim());\n        }\n      }\n    } else {\n      record[child.tag] = decoded;\n    }\n  }\n  return { record, lineItems };\n}\nfunction parseValaszXmlToRecords(valaszXml) {\n  let xml = stripXmlHeader((valaszXml ?? '').toString()).trim();\n  if (!xml) return [];\n  let top = extractTopLevelElements(xml);\n  if (!top.length) return [];\n  while (top.length === 1) {\n    const wi = getInnerOfRoot(top[0].xml, top[0].tag);\n    if (!wi || !wi.trim().startsWith('<')) break;\n    const innerTop = extractTopLevelElements(wi);\n    if (!innerTop.length) break;\n    if (innerTop.length === 1) { top = innerTop; continue; }\n    const tags = new Set(innerTop.map(e => e.tag));\n    if (tags.size > 1) break;\n    top = innerTop;\n  }\n  if (!top.length) return [];\n  const counts = {};\n  for (const el of top) counts[el.tag] = (counts[el.tag] || 0) + 1;\n  let recordTag = top[0].tag, max = 0;\n  for (const [k, v] of Object.entries(counts)) {\n    if (v > max) { max = v; recordTag = k; }\n  }\n  const targets = top.filter(e => e.tag === recordTag);\n  const results = [];\n  for (const elem of targets) {\n    const { record, lineItems } = parseRecordFromXml(elem);\n    if (lineItems.length > 0) {\n      for (const li of lineItems) {\n        const row = { ...record };\n        for (const [k, v] of Object.entries(li)) {\n          row[`tetel_${k}`] = typeof v === 'object' ? JSON.stringify(v) : v;\n        }\n        results.push(row);\n      }\n    } else {\n      const row = {};\n      for (const [k, v] of Object.entries(record)) {\n        row[k] = (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v;\n      }\n      results.push(row);\n    }\n  }\n  return results;\n}\n\nconst envelope = parsed['SOAP-ENV:Envelope'] || parsed['soap:Envelope'] || parsed;\nconst body = envelope?.['SOAP-ENV:Body'] || envelope?.['soap:Body'] || envelope;\nconst fault = body?.['SOAP-ENV:Fault'] || body?.['soap:Fault'];\nif (fault) {\n  return [{ json: { _error: true, error: `SOAP Fault: ${fault?.faultstring || fault?.faultcode || 'Unknown'}`, _pageRecordCount: 0 } }];\n}\nconst bodyKeys = Object.keys(body || {});\nconst responseKey = bodyKeys.find(k => k.includes('Response')) || '';\nif (!responseKey) return [{ json: { _error: true, error: 'No Response element', keys: bodyKeys, _pageRecordCount: 0 } }];\nlet returnVal = body?.[responseKey]?.['return'] ?? body?.[responseKey]?.['ns1:return'];\nif (Array.isArray(returnVal)) returnVal = returnVal[0];\nlet xmlString = '';\nif (typeof returnVal === 'object' && returnVal && typeof returnVal._ === 'string') {\n  xmlString = returnVal._;\n} else if (typeof returnVal === 'string') {\n  xmlString = returnVal;\n} else {\n  return [{ json: { _error: true, error: 'Unexpected return payload type', _pageRecordCount: 0 } }];\n}\nxmlString = (xmlString ?? '').toString().trim();\nif (!xmlString) return [{ json: { _pageRecordCount: 0 } }];\nconst innerXml = stripXmlHeader(xmlString);\nconst { root: innerRoot } = extractRoot(innerXml);\nif ((innerRoot || '').toLowerCase() === 'vissza') {\n  const hibaStr = getTagValue(innerXml, 'hiba');\n  const valasz = getTagValue(innerXml, 'valasz');\n  const hiba = parseInt((hibaStr || '0').toString().trim(), 10);\n  if (Number.isFinite(hiba) && hiba !== 0) {\n    return [{ json: { _error: true, error: 'Tharanis error', hiba, message: valasz || '(empty)', _pageRecordCount: 0 } }];\n  }\n  const vt = (valasz ?? '').toString().trim();\n  if (!vt) return [{ json: { _pageRecordCount: 0 } }];\n  if (vt.includes('<')) {\n    const records = parseValaszXmlToRecords(vt);\n    if (!records.length) return [{ json: { _pageRecordCount: 0 } }];\n    return records.map(r => ({ json: { ...r, _pageRecordCount: records.length } }));\n  }\n  return [{ json: { hiba: 0, value: vt, _pageRecordCount: 1 } }];\n}\nconst fbRecords = parseValaszXmlToRecords(innerXml);\nif (!fbRecords.length) return [{ json: { _error: true, error: 'No records extracted (fallback)', _pageRecordCount: 0 } }];\nreturn fbRecords.map(r => ({ json: { ...r, _pageRecordCount: fbRecords.length } }));\n"
+      },
+      "id": "parse-records",
+      "name": "Parse Response Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accumulate & Check Pages — pagination loop controller\nconst items = $input.all();\nconst staticData = $getWorkflowStaticData('global');\n\nif (!Array.isArray(staticData.accumulatedRecords)) {\n  staticData.accumulatedRecords = [];\n}\n\nconst firstItem = items[0]?.json ?? {};\nconst pageRecordCount = firstItem._pageRecordCount ?? 0;\nconst hasError = !!firstItem._error;\n\nlet originalInput = {};\ntry {\n  const buildSoapOutput = $('Build SOAP Envelope').first()?.json ?? {};\n  originalInput = buildSoapOutput._originalInput ?? {};\n} catch (e) {\n  originalInput = staticData.originalInput ?? {};\n}\n\nconst limit = Number(originalInput.limit) || 200;\nconst currentPage = Number(originalInput.oldal) || 0;\n\nif (!staticData.originalInput) {\n  staticData.originalInput = { ...originalInput };\n}\n\nif (!hasError && pageRecordCount > 0) {\n  for (const item of items) {\n    const row = { ...item.json };\n    delete row._pageRecordCount;\n    delete row._error;\n    staticData.accumulatedRecords.push(row);\n  }\n}\n\nstaticData.totalFetched = staticData.accumulatedRecords.length;\nconst hasMorePages = !hasError && pageRecordCount >= limit;\n\nif (hasMorePages) {\n  const nextPage = currentPage + 1;\n  const loopInput = { ...staticData.originalInput, oldal: nextPage };\n  staticData.originalInput.oldal = nextPage;\n  return [{ json: { ...loopInput, _hasMore: true, _totalSoFar: staticData.totalFetched } }];\n} else {\n  const allRecords = staticData.accumulatedRecords;\n  staticData.accumulatedRecords = [];\n  staticData.currentPage = 0;\n  staticData.totalFetched = 0;\n  staticData.originalInput = null;\n  if (!allRecords.length) {\n    return [{ json: { _hasMore: false, info: 'No records found', totalRecords: 0 } }];\n  }\n  return allRecords.map((r, i) => ({\n    json: { ...r, ...(i === 0 ? { _hasMore: false, _totalRecords: allRecords.length } : { _hasMore: false }) }\n  }));\n}\n"
+      },
+      "id": "accumulate-check",
+      "name": "Accumulate & Check Pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-more-pages",
+              "leftValue": "={{ $json._hasMore }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-more-pages",
+      "name": "More Pages?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1568,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean up internal metadata fields before returning to caller\nconst items = $input.all();\nconst cleaned = items.map(item => {\n  const row = { ...item.json };\n  delete row._hasMore;\n  delete row._totalRecords;\n  delete row._pageRecordCount;\n  delete row._error;\n  return { json: row };\n});\n\nif (!cleaned.length) return cleaned;\n\n// Memory optimisation: keszlet has 13k+ raw warehouse records.\n// Auto-aggregate to unique SKUs (max kiadhato sum) to prevent OOM in callers.\n// Detection: keszlet records always carry the kiadhato1 field.\nif ('kiadhato1' in cleaned[0].json) {\n  const map = {};\n  for (const item of cleaned) {\n    const d = item.json;\n    const sku = (d.cikksz || d.cikkszam || '').toString().trim();\n    if (!sku) continue;\n    const qty = [1,2,3,4,5,6].reduce((s, n) => s + (parseFloat(d['kiadhato' + n]) || 0), 0);\n    if (map[sku] === undefined || qty > map[sku]) map[sku] = qty;\n  }\n  return Object.entries(map).map(([sku, qty]) => ({\n    json: { cikkszam: sku, on_inventory: qty }\n  }));\n}\n\nreturn cleaned;\n"
+      },
+      "id": "clean-output",
+      "name": "Clean Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        240
+      ]
+    }
+  ],
+  "pinData": {
+    "When Called by Another Workflow": [
+      {
+        "json": {
+          "action": "leker",
+          "entity": "kimeno_szamla",
+          "limit": 5,
+          "adatok": {
+            "fej": "I"
+          },
+          "szurok": [
+            {
+              "mezo": "teljdat",
+              "relacio": ">=",
+              "ertek": "2026.01.01"
+            },
+            {
+              "mezo": "teljdat",
+              "relacio": "<=",
+              "ertek": "2026.02.15"
+            },
+            {
+              "mezo": "storno",
+              "relacio": "=",
+              "ertek": "0"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Called by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Initialize Pagination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Pagination": {
+      "main": [
+        [
+          {
+            "node": "Build SOAP Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SOAP Envelope": {
+      "main": [
+        [
+          {
+            "node": "Send SOAP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SOAP Request": {
+      "main": [
+        [
+          {
+            "node": "Parse SOAP Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse SOAP Envelope": {
+      "main": [
+        [
+          {
+            "node": "Parse Response Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response Data": {
+      "main": [
+        [
+          {
+            "node": "Accumulate & Check Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accumulate & Check Pages": {
+      "main": [
+        [
+          {
+            "node": "More Pages?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "More Pages?": {
+      "main": [
+        [
+          {
+            "node": "Build SOAP Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clean Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "acff39db-64b1-43fa-9439-891cfab7aa34",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d63fc78b2c794c9dec77f7aaba32ac8b68184fca44a09823ba9f5dcf728a952c"
+  },
+  "id": "qzy5clMKXHt6MhBd",
+  "tags": []
+}

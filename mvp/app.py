@@ -1,9 +1,12 @@
 """
 Tharanis ERP Dashboard – SamanSport
-Modern analytics UI: Dashboard · Analitika · Riport
+Modern analytics UI: Dashboard · Analitika
 """
 
+import contextlib
 import os
+import random
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,299 +20,525 @@ _CSV_PATH = os.path.join(
     "rakbiz_analitika_012020_012026.csv"
 )
 
-# ── Page config ───────────────────────────────────────────────────────────────
+# ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="SamanSport ERP",
-    page_icon="⚡",
+    page_icon="S",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Global CSS ────────────────────────────────────────────────────────────────
+# ── SVG Icon Library ───────────────────────────────────────────────────────────
+_ICONS = {
+    "grid":         '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+    "bar-chart":    '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>',
+    "file-text":    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    "dollar-sign":  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    "package":      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+    "tag":          '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+    "receipt":      '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/><line x1="16" y1="8" x2="8" y2="8"/><line x1="16" y1="12" x2="8" y2="12"/>',
+    "trending-up":  '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+    "alert-circle": '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    "warehouse":    '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    "download":     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    "refresh-cw":   '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+    "activity":     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    "layers":       '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+    "check-circle": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+    "info":         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+    "database":     '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+    "users":        '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    "calendar":     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    "filter":       '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+    "arrow-up-right":'<line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>',
+}
+
+def svg(name: str, size: int = 16, color: str = "currentColor") -> str:
+    p = _ICONS.get(name, "")
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
+        f'viewBox="0 0 24 24" fill="none" stroke="{color}" '
+        f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{p}</svg>'
+    )
+
+# ── Global CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 * { font-family: 'Inter', sans-serif !important; }
 
-/* ── Main area ── */
-.main .block-container {
-    padding: 1.75rem 2.5rem 2rem 2.5rem;
-    max-width: 100%;
-}
-.main { background-color: #f1f5f9; }
+/* ── Layout ── */
+.main .block-container { padding: 2rem 2.5rem 2rem; max-width: 100%; }
+.main { background-color: #f8fafc; }
 
 /* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none; }
 [data-testid="stToolbar"] { display: none; }
 
-/* ── Sidebar base ── */
+/* ── Sidebar – flush to top ── */
 [data-testid="stSidebar"] > div:first-child {
-    background: #0f172a;
+    background: #ffffff;
     padding: 0;
+    border-right: 1px solid #e5e7eb;
 }
-[data-testid="stSidebar"] .stMarkdown,
-[data-testid="stSidebar"] .stMarkdown p { color: #94a3b8; }
+[data-testid="stSidebarUserContent"] {
+    padding-top: 0 !important;
+}
+section[data-testid="stSidebar"] > div > div:first-child {
+    padding-top: 0 !important;
+}
 
-/* ── Sidebar inputs ── */
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] .stMarkdown p { color: #374151; }
+
 [data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stDateInput label,
-[data-testid="stSidebar"] .stSelectbox label {
-    color: #475569 !important;
-    font-size: 0.7rem !important;
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stDateInput label {
+    color: #9ca3af !important;
+    font-size: 0.56rem !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.08em !important;
+    letter-spacing: 0.11em !important;
     font-weight: 600 !important;
 }
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div,
 [data-testid="stSidebar"] .stDateInput input {
-    background: #1e293b !important;
-    border-color: #334155 !important;
-    color: #e2e8f0 !important;
+    background: #f9fafb !important;
+    border-color: #e5e7eb !important;
+    color: #111827 !important;
     border-radius: 8px !important;
-}
-[data-testid="stSidebar"] .stSelectbox svg { fill: #64748b !important; }
-[data-testid="stSidebar"] .stSuccess {
-    background: #064e3b !important;
-    color: #6ee7b7 !important;
-    border: none !important;
-    border-radius: 8px !important;
-    font-size: 0.8rem !important;
+    font-size: 0.72rem !important;
 }
 
-/* ── Nav buttons ── */
+/* ── Sidebar nav + data load buttons ── */
 [data-testid="stSidebar"] div.stButton > button {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    color: #64748b !important;
+    color: #6b7280 !important;
     text-align: left !important;
     width: 100% !important;
-    padding: 0.55rem 0.9rem !important;
+    padding: 0.35rem 0.75rem !important;
     border-radius: 8px !important;
-    font-size: 0.9rem !important;
+    font-size: 0.78rem !important;
     font-weight: 500 !important;
-    transition: all 0.12s !important;
+    transition: background 0.12s, color 0.12s !important;
     justify-content: flex-start !important;
-    letter-spacing: 0 !important;
 }
 [data-testid="stSidebar"] div.stButton > button:hover {
-    background: #1e293b !important;
-    color: #e2e8f0 !important;
+    background: #f9fafb !important;
+    color: #111827 !important;
     border: none !important;
 }
 [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
-    color: #fff !important;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.4) !important;
+    background: #eff6ff !important;
+    color: #2563eb !important;
+    font-weight: 600 !important;
+    border: none !important;
 }
-/* Load buttons inside sidebar */
 [data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
-    background: #1e293b !important;
-    color: #93c5fd !important;
-    border: 1px solid #334155 !important;
+    background: #f9fafb !important;
+    color: #374151 !important;
+    border: none !important;
+    margin-top: 0.1rem !important;
+    font-size: 0.78rem !important;
 }
 [data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
-    background: #2563eb !important;
-    color: white !important;
-    border-color: #2563eb !important;
+    background: #f3f4f6 !important;
+    border: none !important;
+}
+[data-testid="stSidebar"] .stSuccess {
+    background: #f0fdf4 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 8px !important;
+    font-size: 0.72rem !important;
+    padding: 0.3rem 0.65rem !important;
 }
 
-/* ── KPI grid ── */
+/* ── KPI cards ── */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
 }
 .kpi-card {
     background: white;
-    border-radius: 14px;
-    padding: 1.25rem 1.5rem 1.1rem;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    position: relative;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.kpi-left { flex: 1; min-width: 0; }
+.kpi-label {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 0.3rem;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
 }
-.kpi-card::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    border-radius: 14px 14px 0 0;
-}
-.kpi-card.blue::after   { background: linear-gradient(90deg,#2563eb,#60a5fa); }
-.kpi-card.green::after  { background: linear-gradient(90deg,#10b981,#34d399); }
-.kpi-card.orange::after { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
-.kpi-card.purple::after { background: linear-gradient(90deg,#8b5cf6,#a78bfa); }
-.kpi-card.red::after    { background: linear-gradient(90deg,#ef4444,#f87171); }
-.kpi-icon { font-size: 1.3rem; margin-bottom: 0.55rem; opacity: 0.85; }
 .kpi-value {
-    font-size: 1.65rem;
+    font-size: 1.35rem;
     font-weight: 800;
-    color: #0f172a;
+    color: #111827;
     line-height: 1.1;
     letter-spacing: -0.03em;
 }
-.kpi-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0.3rem;
-}
 .kpi-sub {
-    font-size: 0.78rem;
-    color: #64748b;
-    margin-top: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #9ca3af;
+    margin-top: 0.25rem;
+}
+.kpi-icon-box {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: 0.625rem;
 }
 
-/* ── Section / chart card ── */
+/* ── Section card ── */
 .section-card {
     background: white;
-    border-radius: 14px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    padding: 1.5rem 1.5rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    padding: 1.5rem 1.5rem 1rem;
     margin-bottom: 1.25rem;
 }
 .section-title {
     font-size: 0.95rem;
     font-weight: 700;
-    color: #0f172a;
+    color: #111827;
     letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.2rem;
 }
 .section-sub {
     font-size: 0.78rem;
-    color: #94a3b8;
-    margin-top: 0.15rem;
-    margin-bottom: 0.75rem;
+    color: #9ca3af;
+    margin-bottom: 0.875rem;
 }
 
 /* ── Page header ── */
-.page-hdr { margin-bottom: 1.75rem; }
+.page-hdr { margin-bottom: 1.5rem; }
 .page-hdr-title {
-    font-size: 1.7rem;
+    font-size: 1.625rem;
     font-weight: 800;
-    color: #0f172a;
+    color: #111827;
     letter-spacing: -0.03em;
-    line-height: 1.2;
 }
 .page-hdr-sub {
     font-size: 0.875rem;
-    color: #64748b;
-    margin-top: 0.3rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
 }
-
-/* ── Badge ── */
-.badge {
-    display: inline-flex; align-items: center;
-    padding: 0.18rem 0.6rem;
-    border-radius: 9999px;
-    font-size: 0.7rem; font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-.badge-blue   { background: #dbeafe; color: #1d4ed8; }
-.badge-green  { background: #d1fae5; color: #065f46; }
-.badge-red    { background: #fee2e2; color: #b91c1c; }
-.badge-gray   { background: #f1f5f9; color: #475569; }
-.badge-orange { background: #fef3c7; color: #92400e; }
-
-/* ── Empty state ── */
-.empty-state {
-    text-align: center;
-    padding: 4rem 2rem;
-    background: white;
-    border-radius: 14px;
-    border: 1px solid #e2e8f0;
-}
-.empty-icon { font-size: 2.5rem; margin-bottom: 1rem; }
-.empty-title { font-size: 1.05rem; font-weight: 700; color: #334155; }
-.empty-sub { font-size: 0.85rem; color: #94a3b8; margin-top: 0.4rem; line-height: 1.5; }
 
 /* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
-    background: #f1f5f9;
+    background: #f3f4f6;
     border-radius: 10px;
     padding: 0.25rem;
-    gap: 0.2rem;
+    gap: 0.15rem;
     border-bottom: none !important;
 }
 .stTabs [data-baseweb="tab"] {
-    border-radius: 8px; padding: 0.4rem 1.1rem;
-    font-size: 0.85rem; font-weight: 500; color: #64748b;
-    background: transparent; border: none;
+    border-radius: 8px;
+    padding: 0.4rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: transparent;
+    border: none;
 }
 .stTabs [aria-selected="true"] {
-    background: white !important; color: #0f172a !important;
+    background: white !important;
+    color: #111827 !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .stTabs [data-baseweb="tab-panel"] { padding-top: 1.25rem; }
 
-/* ── st.metric override ── */
+/* ── st.metric ── */
 [data-testid="stMetricValue"] {
-    font-size: 1.4rem !important; font-weight: 800 !important; color: #0f172a !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #111827 !important;
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.7rem !important; color: #94a3b8 !important;
-    text-transform: uppercase !important; letter-spacing: 0.07em !important; font-weight: 600 !important;
+    font-size: 0.65rem !important;
+    color: #9ca3af !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    font-weight: 600 !important;
 }
 
 /* ── Radio controls ── */
-.stRadio label { font-size: 0.85rem !important; font-weight: 500 !important; }
-.stRadio [data-testid="stMarkdownContainer"] p { font-size: 0.85rem !important; }
-div[role="radiogroup"] { gap: 0.25rem !important; }
+.stRadio > label {
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    color: #9ca3af !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.09em !important;
+}
+.stRadio [data-testid="stMarkdownContainer"] p {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #374151 !important;
+}
+div[role="radiogroup"] { gap: 0.2rem !important; }
 
-/* ── Divider ── */
-.hline { height: 1px; background: #e2e8f0; margin: 1.25rem 0; }
+/* ── Selectbox (main area) ── */
+.stSelectbox div[data-baseweb="select"] > div {
+    background: #f9fafb !important;
+    border-color: #e5e7eb !important;
+    border-radius: 8px !important;
+    font-size: 0.875rem !important;
+    color: #111827 !important;
+}
+.stSelectbox > label {
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    color: #9ca3af !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.09em !important;
+}
 
-/* ── Download button ── */
+/* ── Empty state ── */
+.empty-state {
+    text-align: center;
+    padding: 3.5rem 2rem;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+.empty-icon { margin: 0 auto 1rem; display: flex; justify-content: center; }
+.empty-title { font-size: 1rem; font-weight: 700; color: #374151; }
+.empty-sub { font-size: 0.85rem; color: #9ca3af; margin-top: 0.4rem; line-height: 1.6; }
+
+/* ── Badges ── */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.badge-red    { background: #fee2e2; color: #b91c1c; }
+.badge-orange { background: #fff7ed; color: #c2410c; }
+.badge-yellow { background: #fef9c3; color: #854d0e; }
+.badge-green  { background: #f0fdf4; color: #166534; }
+.badge-gray   { background: #f3f4f6; color: #6b7280; }
+.badge-blue   { background: #eff6ff; color: #1d4ed8; }
+
+/* ── Risk table ── */
+.risk-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.risk-table th {
+    text-align: left;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    border-bottom: 1px solid #f1f5f9;
+}
+.risk-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid #f9fafb;
+    color: #374151;
+    vertical-align: middle;
+}
+.risk-table tr:last-child td { border-bottom: none; }
+.risk-table tr:hover td { background: #f9fafb; }
+
+/* ── Selectbox dropdown – widen + horizontal scroll for long product names ── */
+/* Target only the menu inside popovers, NOT the datepicker calendar popover */
+[data-baseweb="menu"] {
+    min-width: min(720px, 90vw) !important;
+    overflow-x: auto !important;
+}
+[data-baseweb="menu"] [role="option"] {
+    white-space: nowrap !important;
+}
+
+/* ── Main area primary button (Betöltés) – blue, compact ── */
+.main div.stButton > button[kind="primary"] {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: white !important;
+    padding: 0.28rem 0.9rem !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    min-height: 0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(37,99,235,0.25) !important;
+}
+.main div.stButton > button[kind="primary"]:hover {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+}
+
+/* ── Misc ── */
+.hline { height: 1px; background: #f1f5f9; margin: 1.25rem 0; }
 .stDownloadButton > button {
-    background: #f8fafc !important;
-    border: 1px solid #e2e8f0 !important;
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
     color: #374151 !important;
     border-radius: 8px !important;
     font-size: 0.85rem !important;
     font-weight: 500 !important;
 }
 .stDownloadButton > button:hover {
-    background: #f1f5f9 !important;
-    border-color: #cbd5e1 !important;
+    background: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+}
+
+/* ── Info banner ── */
+.info-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    color: #1d4ed8;
+    margin-bottom: 1rem;
+}
+
+/* ── Professional loading overlay ── */
+@keyframes spinRing {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@keyframes dashGrow {
+    0%   { stroke-dasharray: 1 150; stroke-dashoffset: 0; }
+    50%  { stroke-dasharray: 90 150; stroke-dashoffset: -35; }
+    100% { stroke-dasharray: 90 150; stroke-dashoffset: -125; }
+}
+.load-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(248, 250, 252, 0.97);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+.load-spinner-wrap {
+    position: relative;
+    width: 68px;
+    height: 68px;
+}
+.load-ring-svg  { animation: spinRing 2s linear infinite; }
+.load-ring-arc  { animation: dashGrow 1.5s ease-in-out infinite; }
+.load-icon-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+.load-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e40af;
+    text-align: center;
+    letter-spacing: -0.01em;
+}
+.load-warn {
+    font-size: 0.82rem;
+    color: #374151;
+    text-align: center;
+    max-width: 380px;
+    line-height: 1.6;
+    padding: 0.65rem 1.1rem;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-
-ALL_PRODUCTS_LABEL = "— Összes termék (cégszintű) —"
+# ── Constants ──────────────────────────────────────────────────────────────────
+ALL_PRODUCTS_LABEL = "— Összes termék —"
 ALL_PRODUCTS_CODE  = "__ALL__"
 PERIOD_OPTIONS = ["Havi", "Heti", "Napi"]
 
 METRIC_CFG = {
-    "Bruttó forgalom":   ("Bruttó érték", "sum",   "HUF", "Bruttó forgalom (HUF)"),
-    "Nettó forgalom":    ("Nettó érték",  "sum",   "HUF", "Nettó forgalom (HUF)"),
-    "Mennyiség":         ("Mennyiség",    "sum",   "db",  "Mennyiség (db)"),
-    "Átl. bruttó ár":    ("Bruttó ár",    "mean",  "HUF", "Átlag bruttó ár (HUF)"),
-    "Átl. nettó ár":     ("Nettó ár",     "mean",  "HUF", "Átlag nettó ár (HUF)"),
-    "Tranzakciók száma": ("Mennyiség",    "count", "db",  "Tranzakciók száma"),
+    "Bruttó forgalom":  ("Bruttó érték", "sum",   "HUF", "Bruttó forgalom (HUF)"),
+    "Nettó forgalom":   ("Nettó érték",  "sum",   "HUF", "Nettó forgalom (HUF)"),
+    "Mennyiség":        ("Mennyiség",    "sum",   "db",  "Mennyiség (db)"),
+    "Átl. bruttó ár":   ("Bruttó ár",    "mean",  "HUF", "Átl. bruttó ár (HUF)"),
+    "Átl. nettó ár":    ("Nettó ár",     "mean",  "HUF", "Átl. nettó ár (HUF)"),
+    "Tranzakciók":      ("Mennyiség",    "count", "db",  "Tranzakciók száma"),
 }
 
-C = {  # chart color palette
-    "blue":   "#2563eb",
+C = {
+    "blue":   "#2563eb",   # primary accent (was teal)
+    "teal":   "#2563eb",   # alias kept for chart references
+    "indigo": "#4f46e5",
     "green":  "#10b981",
     "red":    "#ef4444",
     "orange": "#f59e0b",
     "purple": "#8b5cf6",
     "slate":  "#64748b",
-    "sky":    "#38bdf8",
 }
 
+# ── Professional loading overlay ──────────────────────────────────────────────
+# Center icon rotates randomly between inventory-themed choices each load
+_LOADER_ICONS = ["📦", "🗂️", "📊", "🏷️", "🔄"]
 
-# ── Product master ────────────────────────────────────────────────────────────
+@contextlib.contextmanager
+def funny_loader(label: str = "Adatok betöltése...", warn: str = ""):
+    icon = random.choice(_LOADER_ICONS)
+    warn_html = f'<div class="load-warn">{warn}</div>' if warn else ""
+    ph = st.empty()
+    ph.markdown(
+        f'<div class="load-overlay">'
+        f'  <div class="load-spinner-wrap">'
+        f'    <svg class="load-ring-svg" width="68" height="68" viewBox="0 0 68 68"'
+        f'         xmlns="http://www.w3.org/2000/svg">'
+        f'      <circle cx="34" cy="34" r="28" fill="none"'
+        f'              stroke="#dbeafe" stroke-width="5"/>'
+        f'      <circle class="load-ring-arc" cx="34" cy="34" r="28" fill="none"'
+        f'              stroke="#2563eb" stroke-width="5" stroke-linecap="round"'
+        f'              stroke-dasharray="1 175" stroke-dashoffset="0"/>'
+        f'    </svg>'
+        f'    <div class="load-icon-center">{icon}</div>'
+        f'  </div>'
+        f'  <div class="load-title">{label}</div>'
+        f'  {warn_html}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    try:
+        yield
+    finally:
+        ph.empty()
 
+
+# ── Product master ─────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="Termék lista betöltése…")
 def load_product_master() -> pd.DataFrame:
     if not os.path.exists(_CSV_PATH):
@@ -326,24 +555,18 @@ def load_product_master() -> pd.DataFrame:
         .reset_index(drop=True)
     )
 
-
-# ── Session state ─────────────────────────────────────────────────────────────
-
+# ── Session state ──────────────────────────────────────────────────────────────
 for _k, _v in [
-    ("page",            "dashboard"),
-    ("sales_df",        None),
-    ("inv_df",          None),
-    ("mozgas_df",       None),
-    ("last_query",      {}),
-    ("last_inv_query",  {}),
+    ("page",              "dashboard"),
+    ("sales_df",          None),
+    ("mozgas_df",         None),
+    ("last_query",        {}),
     ("last_mozgas_query", {}),
 ]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
+# ── Helpers ────────────────────────────────────────────────────────────────────
 def period_key(series: pd.Series, period: str) -> pd.Series:
     if period == "Havi":
         return series.dt.to_period("M").astype(str)
@@ -352,57 +575,57 @@ def period_key(series: pd.Series, period: str) -> pd.Series:
     return series.dt.strftime("%Y-%m-%d")
 
 
-def kpi(icon: str, value: str, label: str, color: str = "blue", sub: str = "") -> str:
+def find_sku_col(df: pd.DataFrame):
+    for c in ["Cikkszám", "cikkszam", "SKU", "sku"]:
+        if c in df.columns:
+            return c
+    return None
+
+
+def find_name_col(df: pd.DataFrame):
+    for c in ["Cikknév", "cikknev", "Megnevezés"]:
+        if c in df.columns:
+            return c
+    return None
+
+
+def kpi_card(label: str, value: str, icon_name: str,
+             icon_bg: str = "#eff6ff", icon_color: str = "#2563eb",
+             sub: str = "") -> str:
     sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
     return (
-        f'<div class="kpi-card {color}">'
-        f'<div class="kpi-icon">{icon}</div>'
-        f'<div class="kpi-value">{value}</div>'
+        f'<div class="kpi-card">'
+        f'<div class="kpi-left">'
         f'<div class="kpi-label">{label}</div>'
+        f'<div class="kpi-value">{value}</div>'
         f'{sub_html}'
+        f'</div>'
+        f'<div class="kpi-icon-box" style="background:{icon_bg};">'
+        f'{svg(icon_name, 16, icon_color)}'
+        f'</div>'
         f'</div>'
     )
 
 
-def kpi_row(*cards: str) -> None:
+def kpi_grid(*cards, cols: int = 4) -> None:
     st.markdown(
-        '<div class="kpi-grid">' + "".join(cards) + "</div>",
+        f'<div class="kpi-grid" style="grid-template-columns:repeat({cols},1fr);">'
+        + "".join(cards) + "</div>",
         unsafe_allow_html=True,
     )
 
 
-def section(title: str, sub: str = "") -> None:
+def section_header(title: str, sub: str = "", icon_name: str = "") -> None:
+    icon_html = (
+        f'<span style="display:inline-flex;align-items:center;">'
+        f'{svg(icon_name, 15, "#2563eb")}</span>'
+        if icon_name else ""
+    )
     sub_html = f'<div class="section-sub">{sub}</div>' if sub else ""
     st.markdown(
-        f'<div class="section-title">{title}</div>{sub_html}',
+        f'<div class="section-title">{icon_html}{title}</div>{sub_html}',
         unsafe_allow_html=True,
     )
-
-
-def chart_style(fig: go.Figure, height: int = 420, title: str = "") -> None:
-    """Apply consistent modern styling and render a plotly chart."""
-    fig.update_layout(
-        title=dict(text=title, font=dict(size=14, color="#0f172a"), x=0) if title else None,
-        paper_bgcolor="white",
-        plot_bgcolor="#f8fafc",
-        height=height,
-        margin=dict(l=0, r=0, t=40 if title else 10, b=0),
-        font=dict(color="#374151", size=12),
-        xaxis=dict(
-            gridcolor="#f1f5f9", linecolor="#e2e8f0",
-            tickfont=dict(color="#94a3b8", size=11), tickangle=-35,
-        ),
-        yaxis=dict(
-            gridcolor="#f1f5f9", linecolor="#e2e8f0",
-            tickfont=dict(color="#94a3b8", size=11), zeroline=False,
-        ),
-        legend=dict(
-            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-            font=dict(size=11), bgcolor="rgba(0,0,0,0)",
-        ),
-        hovermode="x unified",
-    )
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
 def page_header(title: str, sub: str = "") -> None:
@@ -413,542 +636,644 @@ def page_header(title: str, sub: str = "") -> None:
     )
 
 
-def empty_state(icon: str, title: str, sub: str) -> None:
+def empty_state(icon_name: str, title: str, sub: str) -> None:
     st.markdown(
-        f'<div class="empty-state"><div class="empty-icon">{icon}</div>'
+        f'<div class="empty-state">'
+        f'<div class="empty-icon">{svg(icon_name, 40, "#d1d5db")}</div>'
         f'<div class="empty-title">{title}</div>'
-        f'<div class="empty-sub">{sub}</div></div>',
+        f'<div class="empty-sub">{sub}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
 
-# ── Fetch helpers ─────────────────────────────────────────────────────────────
+def info_banner(text: str, icon_name: str = "info") -> None:
+    st.markdown(
+        f'<div class="info-banner">{svg(icon_name, 15, "#2563eb")}{text}</div>',
+        unsafe_allow_html=True,
+    )
 
+
+def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=13, color="#374151", family="Inter"), x=0) if title else None,
+        paper_bgcolor="white",
+        plot_bgcolor="#f9fafb",
+        height=height,
+        margin=dict(l=0, r=0, t=40 if title else 10, b=0),
+        font=dict(color="#374151", size=12, family="Inter"),
+        xaxis=dict(
+            gridcolor="#f1f5f9", linecolor="#e5e7eb",
+            tickfont=dict(color="#9ca3af", size=11), tickangle=-30,
+        ),
+        yaxis=dict(
+            gridcolor="#f1f5f9", linecolor="#e5e7eb",
+            tickfont=dict(color="#9ca3af", size=11), zeroline=False,
+        ),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            font=dict(size=11, family="Inter"), bgcolor="rgba(0,0,0,0)",
+        ),
+        hovermode="x unified",
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
+def hbar_chart(labels, values, color: str, height: int = 300) -> None:
+    fig = go.Figure(go.Bar(
+        x=values, y=labels, orientation="h",
+        marker=dict(color=color, opacity=0.85),
+        hovertemplate="%{y}<br><b>%{x:,.0f}</b><extra></extra>",
+    ))
+    fig.update_layout(
+        paper_bgcolor="white", plot_bgcolor="#f9fafb",
+        height=height, margin=dict(l=0, r=16, t=0, b=0),
+        font=dict(color="#374151", size=11, family="Inter"),
+        xaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#9ca3af", size=10)),
+        yaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#374151", size=10), automargin=True),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
+# ── Fetch helpers ──────────────────────────────────────────────────────────────
 def fetch_sales(cikkszam, start, end):
-    with st.spinner("Értékesítési adatok betöltése…"):
-        try:
-            df = api.get_sales(start.strftime("%Y.%m.%d"), end.strftime("%Y.%m.%d"), cikkszam)
-            if df.empty:
-                st.warning("Nincs értékesítési adat a kiválasztott feltételekre.")
-                return None
-            return df
-        except Exception as e:
-            st.error(f"API hiba: {e}")
+    try:
+        df = api.get_sales(start.strftime("%Y.%m.%d"), end.strftime("%Y.%m.%d"), cikkszam)
+        if df.empty:
+            st.warning("Nincs értékesítési adat a megadott feltételekre.")
             return None
-
-
-def fetch_inventory(cikkszam):
-    with st.spinner("Készlet betöltése…"):
-        try:
-            df = api.get_inventory(cikkszam)
-            if df.empty:
-                st.warning("Nincs készletadat.")
-                return None
-            return df
-        except Exception as e:
-            st.error(f"API hiba: {e}")
-            return None
+        return df
+    except Exception as e:
+        st.error(f"API hiba: {e}")
+        return None
 
 
 def fetch_movements(cikkszam, start, end):
-    with st.spinner("Mozgástörténet betöltése…"):
-        try:
-            df = api.get_stock_movements(
-                start.strftime("%Y.%m.%d"), end.strftime("%Y.%m.%d"), cikkszam
-            )
-            if df.empty:
-                st.warning("Nincs mozgásadat.")
-                return None
-            return df
-        except Exception as e:
-            st.error(f"API hiba: {e}")
+    try:
+        df = api.get_stock_movements(
+            start.strftime("%Y.%m.%d"), end.strftime("%Y.%m.%d"), cikkszam
+        )
+        if df.empty:
+            st.warning("Nincs mozgásadat.")
             return None
+        return df
+    except Exception as e:
+        st.error(f"API hiba: {e}")
+        return None
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+def _load_warn(start, end) -> str:
+    """Return a warning string for potentially slow loads, otherwise empty."""
+    days = (end - start).days
+    if days > 365 * 3:
+        return (
+            "Hosszú időhorizontot kértél – ez eltarthat egy kicsit. "
+            "Nyújtózz egyet, vagy igyál meg egy kávét, mire visszajössz, kész lesz. ☕"
+        )
+    if days > 365 * 2:
+        return (
+            "2 évnél hosszabb időszakot kértél. "
+            "Az adatok betöltése pár másodpercet vehet igénybe."
+        )
+    return ""
 
-def render_sidebar(products: pd.DataFrame):
+
+# ── Sidebar ────────────────────────────────────────────────────────────────────
+def render_sidebar():
     with st.sidebar:
-        # Brand header
+        # ── Brand header – flush to the very top ──────────────────────────────
         st.markdown("""
-        <div style="padding:1.5rem 1.25rem 1rem; border-bottom:1px solid #1e293b; margin-bottom:0.5rem;">
-            <div style="font-size:1.15rem;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;">⚡ SamanSport</div>
-            <div style="font-size:0.7rem;color:#475569;text-transform:uppercase;letter-spacing:0.1em;margin-top:3px;">Tharanis ERP Analytics</div>
+        <div style="padding:0.65rem 1rem 0.45rem;margin-top:0;">
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="width:26px;height:26px;background:#2563eb;border-radius:6px;
+                            display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24'
+                         fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'>
+                        <polyline points='23 6 13.5 15.5 8.5 10.5 1 18'/>
+                        <polyline points='17 6 23 6 23 12'/>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size:0.85rem;font-weight:800;color:#111827;letter-spacing:-0.02em;line-height:1.2;">SamanSport</div>
+                    <div style="font-size:0.56rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">ERP Analytics</div>
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Navigation
-        st.markdown('<div style="padding:0.75rem 1.25rem 0.3rem;font-size:0.68rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.1em;">Navigáció</div>', unsafe_allow_html=True)
+        # ── Navigation ────────────────────────────────────────────────────────
+        st.markdown(
+            '<div style="padding:0.35rem 1rem 0.15rem;font-size:0.56rem;font-weight:700;'
+            'color:#9ca3af;text-transform:uppercase;letter-spacing:0.11em;">Navigáció</div>',
+            unsafe_allow_html=True,
+        )
 
         pages = [
-            ("dashboard", "🏠  Dashboard"),
-            ("analytics",  "📊  Analitika"),
-            ("report",     "📋  Riport"),
+            ("dashboard", "grid",      "Dashboard"),
+            ("analytics",  "bar-chart", "Analitika"),
         ]
-        for page_id, label in pages:
+        for page_id, _, label in pages:
             is_active = st.session_state.page == page_id
-            if st.button(label, key=f"nav_{page_id}",
-                         type="primary" if is_active else "secondary",
-                         use_container_width=True):
+            if st.button(
+                f"  {label}", key=f"nav_{page_id}",
+                type="primary" if is_active else "secondary",
+                use_container_width=True,
+            ):
                 st.session_state.page = page_id
+                st.rerun()
 
-        st.markdown('<div style="height:1px;background:#1e293b;margin:0.75rem 0;"></div>', unsafe_allow_html=True)
+        # ── Divider ──────────────────────────────────────────────────────────
+        st.markdown('<div style="height:1px;background:#f3f4f6;margin:0.35rem 0;"></div>', unsafe_allow_html=True)
 
-        # Product selector
-        st.markdown('<div style="padding:0 1.25rem 0.3rem;font-size:0.68rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.1em;">Termék</div>', unsafe_allow_html=True)
-
-        if products.empty:
-            product_options = {ALL_PRODUCTS_LABEL: ALL_PRODUCTS_CODE}
-        else:
-            product_options = {ALL_PRODUCTS_LABEL: ALL_PRODUCTS_CODE}
-            product_options.update({
-                f"{r['Cikkszám']} – {r['Cikknév']}": r["Cikkszám"]
-                for _, r in products.iterrows()
-            })
-
-        selected_label = st.selectbox(
-            "Termék", options=list(product_options.keys()),
-            label_visibility="collapsed",
+        # ── Date range ───────────────────────────────────────────────────────
+        st.markdown(
+            '<div style="padding:0 1rem 0.15rem;font-size:0.56rem;font-weight:700;'
+            'color:#9ca3af;text-transform:uppercase;letter-spacing:0.11em;">Időszak</div>',
+            unsafe_allow_html=True,
         )
-        selected_code = product_options[selected_label]
-        cikkszam_api  = None if selected_code == ALL_PRODUCTS_CODE else selected_code
 
-        # Date range
-        st.markdown('<div style="padding:0.75rem 1.25rem 0.3rem;font-size:0.68rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.1em;">Időszak</div>', unsafe_allow_html=True)
         _today = datetime.now().date()
-        date_range = st.date_input(
-            "Időszak", key="date_range",
-            value=(_today.replace(year=_today.year - 1), _today),
-            max_value=_today, label_visibility="collapsed",
+        _default_start = _today.replace(year=_today.year - 1)
+        start_date = st.date_input(
+            "Kezdő dátum", key="start_date",
+            value=_default_start, max_value=_today,
         )
-        if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
-            start_date, end_date = date_range
+        end_date = st.date_input(
+            "Záró dátum", key="end_date",
+            value=_today, max_value=_today,
+        )
+
+        st.markdown(
+            '<div style="position:fixed;bottom:1rem;left:0;width:16rem;text-align:center;'
+            'font-size:0.6rem;color:#d1d5db;">Tharanis ERP  ·  SamanSport MVP</div>',
+            unsafe_allow_html=True,
+        )
+
+    return start_date, end_date
+
+
+# ── Dashboard page ─────────────────────────────────────────────────────────────
+def render_dashboard():
+    df   = st.session_state.sales_df
+    meta = st.session_state.last_query or {}
+
+    date_sub = (
+        f"{meta.get('start', '')} – {meta.get('end', '')}"
+        if meta.get("start") else ""
+    )
+    page_header(
+        "Dashboard",
+        f"Összes termék  ·  {date_sub}" if date_sub
+        else "Töltse be az értékesítési adatokat a bal oldali panelből",
+    )
+
+    if df is None:
+        empty_state(
+            "database",
+            "Nincs betöltött adat",
+            "Nyissa meg az <b>Analitika</b> oldalt, válasszon terméket és időszakot,<br>"
+            "majd kattintson a <b>Betöltése</b> gombra.",
+        )
+        return
+
+    # ── KPI row ────────────────────────────────────────────────────────────────
+    kpi_grid(
+        kpi_card("Bruttó forgalom", f"{df['Bruttó érték'].sum():,.0f} HUF",
+                 "dollar-sign", "#eff6ff", "#2563eb",
+                 sub=f"{df['kelt'].dt.to_period('M').nunique()} aktív hónap"),
+        kpi_card("Értékesített mennyiség", f"{df['Mennyiség'].sum():,.0f} db",
+                 "package", "#fef9c3", "#d97706",
+                 sub=f"Nettó: {df['Nettó érték'].sum():,.0f} HUF"),
+        kpi_card("Átlagos bruttó ár", f"{df['Bruttó ár'].mean():,.0f} HUF",
+                 "tag", "#faf5ff", "#7c3aed",
+                 sub=f"Átl. nettó: {df['Nettó ár'].mean():,.0f} HUF"),
+        kpi_card("Tranzakciók", f"{len(df):,}",
+                 "receipt", "#fff1f2", "#e11d48",
+                 sub=f"{df['kelt'].dt.year.nunique()} aktív év"),
+    )
+
+    # ── Revenue trend ──────────────────────────────────────────────────────────
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    section_header("Havi bruttó forgalom", "Értékesítési trend az időszakra", "trending-up")
+    df2 = df.copy()
+    df2["Hónap"] = df2["kelt"].dt.to_period("M").astype(str)
+    monthly = df2.groupby("Hónap")["Bruttó érték"].sum().reset_index().sort_values("Hónap")
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=monthly["Hónap"], y=monthly["Bruttó érték"],
+        mode="lines", name="Bruttó forgalom",
+        line=dict(color=C["blue"], width=2.5),
+        fill="tozeroy", fillcolor="rgba(37,99,235,0.08)",
+        hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
+    ))
+    chart_style(fig, height=260)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Top 10 products ────────────────────────────────────────────────────────
+    sc = find_sku_col(df)
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    section_header("Top 10 termék", "Bruttó forgalom szerint", "bar-chart")
+    if sc:
+        grp = df.groupby(sc)["Bruttó érték"].sum().nlargest(10).reset_index()
+        grp.columns = ["Cikkszám", "Forgalom"]
+        nc = find_name_col(df)
+        if nc:
+            names = df[[sc, nc]].drop_duplicates().rename(columns={sc: "Cikkszám", nc: "Cikknév"})
+            grp = grp.merge(names, on="Cikkszám", how="left")
+            grp["Label"] = grp["Cikknév"].fillna(grp["Cikkszám"]).str[:30]
         else:
-            start_date = end_date = date_range[0] if date_range else _today
+            grp["Label"] = grp["Cikkszám"].str[:30]
+        grp = grp.sort_values("Forgalom")
+        hbar_chart(grp["Label"].tolist(), grp["Forgalom"].tolist(), C["blue"], height=300)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('<div style="height:1px;background:#1e293b;margin:0.75rem 0;"></div>', unsafe_allow_html=True)
+    # ── Monthly quantities ─────────────────────────────────────────────────────
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    section_header("Havi értékesített mennyiség", "", "activity")
+    mq = df2.groupby("Hónap")["Mennyiség"].sum().reset_index().sort_values("Hónap")
+    fig_q = go.Figure(go.Bar(
+        x=mq["Hónap"], y=mq["Mennyiség"],
+        marker=dict(color=C["indigo"], opacity=0.8),
+        hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
+    ))
+    chart_style(fig_q, height=230)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        # Load buttons
-        st.markdown('<div style="padding:0 1.25rem 0.3rem;font-size:0.68rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.1em;">Adatok betöltése</div>', unsafe_allow_html=True)
 
-        if st.button("🔄  Értékesítés", key="load_sales", type="secondary", use_container_width=True):
-            df = fetch_sales(cikkszam_api, start_date, end_date)
-            if df is not None:
-                st.session_state.sales_df = df
-                st.session_state.last_query = {
-                    "cikkszam": cikkszam_api, "label": selected_label,
-                    "start": start_date, "end": end_date,
-                }
-        if st.session_state.sales_df is not None:
-            st.success(f"✓ {len(st.session_state.sales_df):,} értékesítési sor")
+# ── Analytics – Sales view ─────────────────────────────────────────────────────
+def _analytics_sales(load_triggered: bool = False):
+    _today = datetime.now().date()
+    start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
+    end    = st.session_state.get("end_date",   _today)
 
-        if st.button("📦  Készlet", key="load_inv", type="secondary", use_container_width=True):
-            inv = fetch_inventory(cikkszam_api)
-            if inv is not None:
-                st.session_state.inv_df = inv
-                st.session_state.last_inv_query = {
-                    "cikkszam": cikkszam_api, "label": selected_label,
-                }
-        if st.session_state.inv_df is not None:
-            st.success(f"✓ {len(st.session_state.inv_df):,} termék készlete")
+    # ── Pre-load: product selector (full-width) ───────────────────────────────
+    products = load_product_master()
+    prod_opts: dict = {ALL_PRODUCTS_LABEL: None}
+    if not products.empty:
+        # Source 1: CSV product master
+        for _, r in products.iterrows():
+            prod_opts[f"{r['Cikkszám']}  –  {r['Cikknév']}"] = r["Cikkszám"]
+    elif st.session_state.get("_prod_opts_cache"):
+        # Source 2: list cached from initial all-products load (survives filtered reloads)
+        prod_opts = st.session_state["_prod_opts_cache"]
+    elif st.session_state.sales_df is not None and (st.session_state.last_query or {}).get("cikkszam") is None:
+        # Source 3: build fresh from sales_df only when it contains all-products data
+        _pm = st.session_state.sales_df
+        _sc = find_sku_col(_pm)
+        _nc = find_name_col(_pm)
+        if _sc:
+            _rows = (
+                _pm[[_sc] + ([_nc] if _nc else [])]
+                .drop_duplicates(subset=[_sc])
+                .dropna(subset=[_sc])
+                .sort_values(_nc if _nc else _sc)
+            )
+            for _, r in _rows.iterrows():
+                lbl = (
+                    f"{r[_sc]}  –  {r[_nc]}"
+                    if _nc and pd.notna(r.get(_nc))
+                    else str(r[_sc])
+                )
+                prod_opts[lbl] = r[_sc]
+            st.session_state["_prod_opts_cache"] = prod_opts  # cache for subsequent runs
 
-        if st.button("📋  Mozgástörténet", key="load_mozgas", type="secondary", use_container_width=True):
-            mdf = fetch_movements(cikkszam_api, start_date, end_date)
+    # ── Stable-ID selectbox ───────────────────────────────────────────────────
+    # Store the SHORT cikkszam code (e.g. "4633") as the widget value instead of
+    # the long label string.  Label strings differ between CSV / cache / API and
+    # cause _an_sku not in _sku_opts → stale guard → visible-empty selectbox.
+    _sku_opts: list = []
+    _sku_label_map: dict = {}
+    for _lbl, _sku in prod_opts.items():
+        _code = _sku if _sku is not None else ALL_PRODUCTS_CODE
+        _sku_opts.append(_code)
+        _sku_label_map[_code] = _lbl
+
+    # Resolve which SKU to highlight (prefer last explicit pick, then last loaded)
+    _last_loaded_sku = (st.session_state.last_query or {}).get("cikkszam")
+    _stored_sku      = st.session_state.get("_sel_sku")
+    # _stored_sku may legitimately be ALL_PRODUCTS_CODE (non-falsy), so avoid `or`
+    _target_sku = (
+        _stored_sku if (_stored_sku is not None and _stored_sku in _sku_opts)
+        else (_last_loaded_sku if _last_loaded_sku in _sku_opts else ALL_PRODUCTS_CODE)
+    )
+    _sel_sku_idx = _sku_opts.index(_target_sku)
+
+    # Guard: delete stale key only – never assign to a widget key before render
+    # (assigning raises StreamlitAPIException in Streamlit 1.29).
+    if "_an_sku" in st.session_state and st.session_state["_an_sku"] not in _sku_opts:
+        del st.session_state["_an_sku"]
+
+    sel_sku   = st.selectbox(
+        "Termék", _sku_opts,
+        format_func=lambda c: _sku_label_map.get(c, c),
+        index=_sel_sku_idx, key="_an_sku",
+    )
+    sel_label = _sku_label_map.get(sel_sku, ALL_PRODUCTS_LABEL)
+    st.session_state["_sel_sku"]     = sel_sku
+    st.session_state["_sel_product"] = sel_label  # keep for legacy references
+
+    if load_triggered:
+        cikkszam = None if sel_sku == ALL_PRODUCTS_CODE else sel_sku
+        warn = _load_warn(start, end)
+        with funny_loader("Értékesítési adatok betöltése...", warn):
+            df_new = fetch_sales(cikkszam, start, end)
+        if df_new is not None:
+            st.session_state.sales_df = df_new
+            st.session_state.last_query = {
+                "cikkszam": cikkszam,
+                "label":    sel_label,
+                "start":    start,
+                "end":      end,
+            }
+            st.session_state["_sel_sku"]     = sel_sku
+            st.session_state["_sel_product"] = sel_label
+
+    # ── Guard: nothing loaded yet ─────────────────────────────────────────────
+    df   = st.session_state.sales_df
+    meta = st.session_state.last_query or {}
+    if df is None:
+        st.markdown('<div style="height:0.75rem;"></div>', unsafe_allow_html=True)
+        empty_state(
+            "bar-chart",
+            "Nincs betöltött adat",
+            "Válasszon terméket a fenti listából, majd kattintson a <b>Betöltése</b> gombra.",
+        )
+        return
+
+    # ── Optional in-page filter (only when all products were loaded) ──────────
+    sc = find_sku_col(df)
+    nc = find_name_col(df)
+    loaded_cikkszam = meta.get("cikkszam")   # None → all products in memory
+    display_label   = meta.get("label", "—")
+    filter_sku      = loaded_cikkszam        # tracks currently-viewed SKU
+
+    if loaded_cikkszam is None and sc:
+        # All products loaded – let user drill into one without re-fetching
+        sku_rows = (
+            df[[sc] + ([nc] if nc else [])]
+            .drop_duplicates(subset=[sc])
+            .dropna(subset=[sc])
+            .sort_values(sc)
+        )
+        sku_label_map: dict = {ALL_PRODUCTS_LABEL: None}
+        for _, r in sku_rows.iterrows():
+            lbl = (f"{r[sc]}  –  {r[nc]}" if nc and pd.notna(r.get(nc)) else str(r[sc]))
+            sku_label_map[lbl] = r[sc]
+        info_banner(
+            f"Összes termék betöltve ({len(sku_label_map) - 1:,} db). "
+            "Az alábbi szűrővel egy termékre szűkíthet újratöltés nélkül.",
+            "filter",
+        )
+        inner_choice = st.selectbox(
+            "Termék szűrő", list(sku_label_map.keys()), key="an_sku_filter",
+        )
+        inner_sku = sku_label_map[inner_choice]
+        if inner_sku is not None:
+            df            = df[df[sc] == inner_sku]
+            display_label = inner_choice
+            filter_sku    = inner_sku
+    else:
+        # Specific product loaded – just show a status line
+        info_banner(
+            f"Betöltve: {meta.get('label', '—')}  ·  "
+            f"{meta.get('start', '')} – {meta.get('end', '')}  ·  {len(df):,} tranzakció",
+            "database",
+        )
+
+    # ── Controls row ─────────────────────────────────────────────────────────
+    ctrl1, ctrl2, ctrl3 = st.columns([4, 2, 2])
+    with ctrl1:
+        metric = st.radio("Mutató", list(METRIC_CFG.keys()), horizontal=True, key="an_metric")
+    with ctrl2:
+        period = st.radio("Periódus", PERIOD_OPTIONS, horizontal=True, key="an_period")
+    with ctrl3:
+        chart_type = st.radio("Diagram", ["Oszlop", "Vonal"], horizontal=True, key="an_chart")
+
+    col_name, agg_fn, unit, ytitle = METRIC_CFG[metric]
+    df2 = df.copy()
+    df2["Periódus"] = period_key(df2["kelt"], period)
+    grouped = df2.groupby("Periódus")[col_name].agg(agg_fn).reset_index().sort_values("Periódus")
+
+    # ── Chart ─────────────────────────────────────────────────────────────────
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    section_header(
+        metric,
+        f"{display_label}  ·  {meta.get('start', '')} – {meta.get('end', '')}",
+        "bar-chart",
+    )
+    fig = go.Figure()
+    ht  = f"%{{x}}<br><b>%{{y:,.0f}} {unit}</b><extra></extra>"
+    if chart_type == "Oszlop":
+        fig.add_trace(go.Bar(
+            x=grouped["Periódus"], y=grouped[col_name],
+            marker_color=C["blue"], name=metric, hovertemplate=ht,
+        ))
+    else:
+        fig.add_trace(go.Scatter(
+            x=grouped["Periódus"], y=grouped[col_name],
+            mode="lines+markers", name=metric,
+            line=dict(color=C["blue"], width=2.5),
+            marker=dict(size=6, color=C["blue"]),
+            fill="tozeroy", fillcolor="rgba(37,99,235,0.07)",
+            hovertemplate=ht,
+        ))
+    fig.update_layout(yaxis_title=ytitle)
+    chart_style(fig, height=380)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Summary metrics (always reflect current filter/product) ──────────────
+    m1, m2, m3, m4, m5 = st.columns(5)
+    with m1: st.metric("Összes mennyiség",  f"{df['Mennyiség'].sum():,.0f} db")
+    with m2: st.metric("Bruttó forgalom",   f"{df['Bruttó érték'].sum():,.0f} HUF")
+    with m3: st.metric("Nettó forgalom",    f"{df['Nettó érték'].sum():,.0f} HUF")
+    with m4: st.metric("Átl. bruttó ár",    f"{df['Bruttó ár'].mean():,.0f} HUF")
+    with m5: st.metric("Aktív periódusok",  f"{grouped['Periódus'].nunique()}")
+
+    # ── Full data table ───────────────────────────────────────────────────────
+    st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
+    section_header(
+        "Teljes értékesítési adatok",
+        f"{display_label}  ·  {len(df):,} tranzakció",
+        "file-text",
+    )
+    full = df.copy()
+    full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
+    st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
+    fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
+    csv_bytes = full.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        "CSV letöltése",
+        data=csv_bytes,
+        file_name=f"ertekesites_{fn_sku}_{meta.get('start', '')}.csv",
+        mime="text/csv",
+    )
+
+
+# ── Analytics – Movements view (incl. load button) ────────────────────────────
+def _analytics_movements():
+    _today = datetime.now().date()
+    start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
+    end    = st.session_state.get("end_date",   _today)
+
+    # ── Load button ───────────────────────────────────────────────────────────
+    col_btn, col_status = st.columns([2, 3])
+    with col_btn:
+        if st.button("  Mozgástörténet betöltése", key="load_mozgas_an", type="secondary"):
+            warn = _load_warn(start, end)
+            with funny_loader("Mozgástörténet betöltése...", warn):
+                mdf = fetch_movements(None, start, end)
             if mdf is not None:
                 st.session_state.mozgas_df = mdf
                 st.session_state.last_mozgas_query = {
-                    "cikkszam": cikkszam_api, "label": selected_label,
-                    "start": start_date, "end": end_date,
+                    "cikkszam": None, "label": ALL_PRODUCTS_LABEL,
+                    "start": start, "end": end,
                 }
+    with col_status:
         if st.session_state.mozgas_df is not None:
-            st.success(f"✓ {len(st.session_state.mozgas_df):,} mozgássor")
+            n = len(st.session_state.mozgas_df)
+            st.success(f"  {n:,} mozgássor betöltve")
 
-        st.markdown('<div style="position:fixed;bottom:1rem;left:0;width:16rem;text-align:center;font-size:0.68rem;color:#334155;">Tharanis ERP · SamanSport MVP</div>', unsafe_allow_html=True)
-
-    return selected_label, cikkszam_api, start_date, end_date
-
-
-# ── Dashboard page ────────────────────────────────────────────────────────────
-
-def render_dashboard():
-    df   = st.session_state.sales_df
-    inv  = st.session_state.inv_df
-    meta = st.session_state.last_query or {}
-
-    product_label = meta.get("label", "—")
-    date_sub = f"{meta.get('start', '')} – {meta.get('end', '')}" if meta else ""
-    page_header("Dashboard", f"{product_label}  ·  {date_sub}" if date_sub else "Töltse be az adatokat a bal oldali panelből")
-
-    if df is None and inv is None:
-        empty_state("📊", "Még nincs betöltött adat",
-                    "Válasszon terméket és időszakot,<br>majd kattintson a betöltés gombokra a bal oldali panelben.")
+    mdf = st.session_state.mozgas_df
+    if mdf is None:
+        st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
+        empty_state("activity", "Nincs mozgástörténet", "Kattints a gombra a mozgásadatok betöltéséhez.")
         return
 
-    # ── KPI cards ──────────────────────────────────────────────────────────────
-    if df is not None:
-        stock_val = "—"
-        if inv is not None and not inv.empty:
-            keszlet_col = inv.columns[1]
-            if meta.get("cikkszam"):
-                row = inv[inv.iloc[:, 0] == meta["cikkszam"]]
-                stock_val = f"{row[keszlet_col].values[0]:,.0f} db" if not row.empty else "0 db"
-            else:
-                stock_val = f"{inv[keszlet_col].sum():,.0f} db"
+    meta_m = st.session_state.last_mozgas_query or {}
 
-        kpi_row(
-            kpi("💰", f"{df['Bruttó érték'].sum():,.0f}", "Bruttó forgalom (HUF)", "blue"),
-            kpi("📦", f"{df['Mennyiség'].sum():,.0f}", "Értékesített db", "green"),
-            kpi("🏷️", f"{df['Bruttó ár'].mean():,.0f}", "Átl. bruttó ár (HUF)", "orange"),
-            kpi("🧾", f"{len(df):,}", "Tranzakciók", "purple"),
+    cp, cc = st.columns([2, 2])
+    with cp: period_m = st.radio("Periódus", PERIOD_OPTIONS, horizontal=True, key="mz_period")
+    with cc: chart_m  = st.radio("Diagram",  ["Oszlop", "Vonal"], horizontal=True, key="mz_chart")
+
+    mdf2  = mdf.copy()
+    mdf2["Periódus"] = period_key(mdf2["kelt"], period_m)
+    be_map = mdf2[mdf2["Irány"] == "B"].groupby("Periódus")["Mennyiség"].sum().to_dict()
+    ki_map = mdf2[mdf2["Irány"] == "K"].groupby("Periódus")["Mennyiség"].sum().to_dict()
+    all_p  = sorted(set(be_map) | set(ki_map))
+    be_v   = [be_map.get(p, 0) for p in all_p]
+    ki_v   = [ki_map.get(p, 0) for p in all_p]
+
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    section_header(
+        "Raktári mozgások",
+        f"{meta_m.get('start', '')} – {meta_m.get('end', '')}",
+        "activity",
+    )
+    fig = go.Figure()
+    if chart_m == "Oszlop":
+        fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["blue"],
+                             hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
+        fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color=C["orange"],
+                             hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
+        fig.update_layout(barmode="group")
+    else:
+        fig.add_trace(go.Scatter(x=all_p, y=be_v, name="Beérkező",
+                                 mode="lines+markers", line=dict(color=C["blue"], width=2.5),
+                                 marker=dict(size=6)))
+        fig.add_trace(go.Scatter(x=all_p, y=ki_v, name="Kiadó",
+                                 mode="lines+markers", line=dict(color=C["orange"], width=2.5),
+                                 marker=dict(size=6)))
+    chart_style(fig, height=380)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
+    total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
+    s1, s2, s3, s4 = st.columns(4)
+    with s1: st.metric("Összes beérkező", f"{total_be:,.0f} db")
+    with s2: st.metric("Összes kiadó",    f"{total_ki:,.0f} db")
+    with s3: st.metric("Nettó mozgás",    f"{total_be - total_ki:+,.0f} db")
+    with s4: st.metric("Mozgástípusok",   f"{mdf['Mozgástípus'].nunique()}")
+
+    st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
+    with st.expander("Mozgás adattáblázat"):
+        show_m = mdf.copy()
+        show_m["kelt"] = show_m["kelt"].dt.strftime("%Y-%m-%d")
+        st.dataframe(show_m.reset_index(drop=True), use_container_width=True, height=300)
+        csv = show_m.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "CSV letöltése",
+            data=csv,
+            file_name=f"mozgas_osszes_{meta_m.get('start','')}.csv",
+            mime="text/csv",
         )
-        if inv is not None:
-            kpi_row(
-                kpi("🏬", stock_val, "Jelenlegi készlet", "red"),
-                kpi("📅", str(df["kelt"].dt.year.nunique()), "Aktív évek", "slate" if "slate" in C else "blue"),
-                kpi("📈", f"{df['kelt'].dt.to_period('M').nunique()}", "Aktív hónapok", "green"),
-                kpi("💵", f"{df['Nettó érték'].sum():,.0f}", "Nettó forgalom (HUF)", "blue"),
-            )
-
-        # ── Monthly revenue chart ───────────────────────────────────────────────
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        section("Havi bruttó forgalom", product_label)
-        df2 = df.copy()
-        df2["Hónap"] = df2["kelt"].dt.to_period("M").astype(str)
-        monthly = df2.groupby("Hónap")["Bruttó érték"].sum().reset_index().sort_values("Hónap")
-        fig = go.Figure(go.Bar(
-            x=monthly["Hónap"], y=monthly["Bruttó érték"],
-            marker=dict(color=C["blue"], opacity=0.85,
-                        line=dict(color=C["blue"], width=0)),
-            hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
-        ))
-        chart_style(fig, height=300)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ── Two-column: quantity trend + top months ─────────────────────────────
-        col_l, col_r = st.columns(2)
-
-        with col_l:
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section("Havi értékesített mennyiség")
-            mq = df2.groupby("Hónap")["Mennyiség"].sum().reset_index().sort_values("Hónap")
-            fig2 = go.Figure(go.Scatter(
-                x=mq["Hónap"], y=mq["Mennyiség"],
-                mode="lines+markers",
-                line=dict(color=C["green"], width=2.5),
-                marker=dict(size=6, color=C["green"]),
-                fill="tozeroy", fillcolor="rgba(16,185,129,0.08)",
-                hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
-            ))
-            chart_style(fig2, height=260)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with col_r:
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section("Átlagos bruttó ár trend")
-            mp = df2.groupby("Hónap")["Bruttó ár"].mean().reset_index().sort_values("Hónap")
-            fig3 = go.Figure(go.Scatter(
-                x=mp["Hónap"], y=mp["Bruttó ár"],
-                mode="lines+markers",
-                line=dict(color=C["orange"], width=2.5),
-                marker=dict(size=6, color=C["orange"]),
-                fill="tozeroy", fillcolor="rgba(245,158,11,0.08)",
-                hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
-            ))
-            chart_style(fig3, height=260)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # ── Recent transactions ─────────────────────────────────────────────────
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        section("Legutóbbi tranzakciók", "Utolsó 20 sor")
-        recent = df.copy().sort_values("kelt", ascending=False).head(20)
-        recent["kelt"] = recent["kelt"].dt.strftime("%Y-%m-%d")
-        st.dataframe(recent.reset_index(drop=True), use_container_width=True, height=280)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ── Analytics page ────────────────────────────────────────────────────────────
-
+# ── Analytics page ─────────────────────────────────────────────────────────────
 def render_analytics():
     meta = st.session_state.last_query or {}
-    product_label = meta.get("label", "—")
-    page_header("Analitika", product_label)
 
-    tab_sales, tab_inv, tab_mozgas = st.tabs(
-        ["📈  Értékesítés", "📦  Készlet", "📋  Mozgástörténet"]
+    # Page header + top-right load button on the same row
+    hdr_col, btn_col = st.columns([7, 1])
+    with hdr_col:
+        page_header("Analitika", meta.get("label", "—"))
+    with btn_col:
+        st.write("")
+        load_triggered = st.button(
+            "Betöltés", key="an_load_top", type="primary", use_container_width=True,
+        )
+
+    view = st.radio(
+        "Adatnézet",
+        ["Értékesítés", "Mozgástörténet"],
+        horizontal=True,
+        key="an_view",
     )
 
-    # ── Értékesítés tab ────────────────────────────────────────────────────────
-    with tab_sales:
-        if st.session_state.sales_df is None:
-            empty_state("📈", "Nincs értékesítési adat", "Töltse be az adatokat a bal oldali panelből.")
-        else:
-            df   = st.session_state.sales_df
-            meta = st.session_state.last_query
+    st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
 
-            ctrl1, ctrl2, ctrl3 = st.columns([5, 2, 2])
-            with ctrl1:
-                metric = st.radio("Mutató", list(METRIC_CFG.keys()), horizontal=True, key="an_metric")
-            with ctrl2:
-                period = st.radio("Periódus", PERIOD_OPTIONS, horizontal=True, key="an_period")
-            with ctrl3:
-                chart_type = st.radio("Diagram", ["Oszlop", "Vonal"], horizontal=True, key="an_chart")
-
-            col_name, agg_fn, unit, ytitle = METRIC_CFG[metric]
-            df2 = df.copy()
-            df2["Periódus"] = period_key(df2["kelt"], period)
-            grouped = df2.groupby("Periódus")[col_name].agg(agg_fn).reset_index().sort_values("Periódus")
-
-            fig = go.Figure()
-            ht = f"%{{x}}<br><b>%{{y:,.0f}} {unit}</b><extra></extra>"
-            if chart_type == "Oszlop":
-                fig.add_trace(go.Bar(
-                    x=grouped["Periódus"], y=grouped[col_name],
-                    marker_color=C["blue"], name=metric, hovertemplate=ht,
-                ))
-            else:
-                fig.add_trace(go.Scatter(
-                    x=grouped["Periódus"], y=grouped[col_name],
-                    mode="lines+markers", name=metric,
-                    line=dict(color=C["blue"], width=2.5),
-                    marker=dict(size=7, color=C["blue"]),
-                    fill="tozeroy", fillcolor="rgba(37,99,235,0.07)",
-                    hovertemplate=ht,
-                ))
-            fig.update_layout(yaxis_title=ytitle)
-            chart_style(fig, height=420,
-                        title=f"{meta.get('label','')}"
-                              f"  ·  {metric}  ·  {meta.get('start','')} – {meta.get('end','')}")
-
-            st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
-            m1, m2, m3, m4, m5 = st.columns(5)
-            with m1: st.metric("Összes mennyiség",   f"{df['Mennyiség'].sum():,.0f} db")
-            with m2: st.metric("Bruttó forgalom",    f"{df['Bruttó érték'].sum():,.0f} HUF")
-            with m3: st.metric("Nettó forgalom",     f"{df['Nettó érték'].sum():,.0f} HUF")
-            with m4: st.metric("Átl. bruttó ár",     f"{df['Bruttó ár'].mean():,.0f} HUF")
-            with m5: st.metric("Aktív periódusok",   f"{grouped['Periódus'].nunique()}")
-
-    # ── Készlet tab ────────────────────────────────────────────────────────────
-    with tab_inv:
-        if st.session_state.inv_df is None:
-            empty_state("📦", "Nincs készletadat", "Töltse be a készletet a bal oldali panelből.")
-        else:
-            inv  = st.session_state.inv_df
-            meta_inv = st.session_state.last_inv_query
-            label    = meta_inv.get("label", "")
-            is_all   = meta_inv.get("cikkszam") is None
-            keszlet_col = inv.columns[1]
-
-            if is_all:
-                inv_pos  = inv[inv[keszlet_col] > 0].sort_values(keszlet_col, ascending=False)
-                inv_zero = inv[inv[keszlet_col] == 0]
-                kpi_row(
-                    kpi("📦", f"{len(inv_pos):,}", "Készletes termékek", "green"),
-                    kpi("⬜", f"{len(inv_zero):,}", "Nulla készlet", "red"),
-                    kpi("🏬", f"{inv[keszlet_col].sum():,.0f}", "Összes készlet (db)", "blue"),
-                    kpi("📊", f"{len(inv):,}", "Termékek összesen", "orange"),
-                )
-                top_n = st.slider("Top N termék", 10, 100, 30, step=10)
-                top   = inv_pos.head(top_n)
-                fig = go.Figure(go.Bar(
-                    x=top.iloc[:, 0], y=top[keszlet_col],
-                    marker_color=C["green"], opacity=0.85,
-                    hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
-                ))
-                chart_style(fig, height=400, title=f"Top {top_n} termék — elérhető készlet")
-                with st.expander("Teljes készlet táblázat"):
-                    st.dataframe(inv_pos.reset_index(drop=True), use_container_width=True)
-            else:
-                row   = inv.iloc[0]
-                total = row[keszlet_col]
-                st.markdown(f'<div style="margin-bottom:1.25rem;">', unsafe_allow_html=True)
-                kpi_row(kpi("🏬", f"{total:,.0f} db", "Elérhető készlet", "green" if total > 0 else "red"))
-                st.markdown('</div>', unsafe_allow_html=True)
-                wh_cols = [c for c in inv.columns if c.startswith("Raktár")]
-                wh_data = {c: row[c] for c in wh_cols if row[c] > 0}
-                if wh_data:
-                    fig = go.Figure(go.Bar(
-                        x=list(wh_data.keys()), y=list(wh_data.values()),
-                        marker_color=C["green"],
-                        text=[f"{v:,.0f}" for v in wh_data.values()],
-                        textposition="outside",
-                        hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
-                    ))
-                    chart_style(fig, height=350, title=f"{label} – készlet raktáranként")
-                else:
-                    st.warning("Minden raktárban nulla a készlet.")
-
-    # ── Mozgástörténet tab ─────────────────────────────────────────────────────
-    with tab_mozgas:
-        if st.session_state.mozgas_df is None:
-            empty_state("📋", "Nincs mozgástörténet", "Töltse be a mozgásokat a bal oldali panelből.")
-        else:
-            mdf  = st.session_state.mozgas_df
-            meta_m = st.session_state.last_mozgas_query
-
-            cp, cc = st.columns([2, 2])
-            with cp: period_m  = st.radio("Periódus", PERIOD_OPTIONS, horizontal=True, key="mz_period")
-            with cc: chart_m   = st.radio("Diagram", ["Oszlop", "Vonal"], horizontal=True, key="mz_chart")
-
-            mdf2 = mdf.copy()
-            mdf2["Periódus"] = period_key(mdf2["kelt"], period_m)
-            be_map = mdf2[mdf2["Irány"] == "B"].groupby("Periódus")["Mennyiség"].sum().to_dict()
-            ki_map = mdf2[mdf2["Irány"] == "K"].groupby("Periódus")["Mennyiség"].sum().to_dict()
-            all_p  = sorted(set(be_map) | set(ki_map))
-            be_v   = [be_map.get(p, 0) for p in all_p]
-            ki_v   = [ki_map.get(p, 0) for p in all_p]
-
-            fig = go.Figure()
-            if chart_m == "Oszlop":
-                fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["green"],
-                                     hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
-                fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color=C["red"],
-                                     hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
-                fig.update_layout(barmode="group")
-            else:
-                fig.add_trace(go.Scatter(x=all_p, y=be_v, name="Beérkező",
-                                         mode="lines+markers", line=dict(color=C["green"], width=2.5),
-                                         marker=dict(size=6)))
-                fig.add_trace(go.Scatter(x=all_p, y=ki_v, name="Kiadó",
-                                         mode="lines+markers", line=dict(color=C["red"], width=2.5),
-                                         marker=dict(size=6)))
-            chart_style(fig, height=420,
-                        title=f"{meta_m.get('label','')}  ·  Raktári mozgások")
-
-            st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
-            total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
-            total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
-            s1, s2, s3, s4 = st.columns(4)
-            with s1: st.metric("Összes beérkező", f"{total_be:,.0f} db")
-            with s2: st.metric("Összes kiadó",    f"{total_ki:,.0f} db")
-            with s3: st.metric("Nettó mozgás",    f"{total_be - total_ki:+,.0f} db")
-            with s4: st.metric("Mozgástípusok",   f"{mdf['Mozgástípus'].nunique()}")
+    if view == "Értékesítés":
+        _analytics_sales(load_triggered=load_triggered)
+    else:
+        _analytics_movements()
 
 
-# ── Report page ───────────────────────────────────────────────────────────────
 
-def render_report():
-    meta = st.session_state.last_query or {}
-    page_header("Riport", meta.get("label", "—"))
-
-    tabs = []
-    if st.session_state.sales_df is not None:   tabs.append("📈  Értékesítés")
-    if st.session_state.inv_df is not None:      tabs.append("📦  Készlet")
-    if st.session_state.mozgas_df is not None:   tabs.append("📋  Mozgástörténet")
-
-    if not tabs:
-        empty_state("📋", "Nincs betöltött adat", "Töltse be az adatokat a bal oldali panelből.")
-        return
-
-    tab_objs = st.tabs(tabs)
-    tab_idx  = 0
-
-    # ── Sales report ──────────────────────────────────────────────────────────
-    if st.session_state.sales_df is not None:
-        with tab_objs[tab_idx]:
-            tab_idx += 1
-            df   = st.session_state.sales_df
-            meta = st.session_state.last_query
-
-            # Summary stats
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section("Összefoglaló statisztikák")
-            stats = pd.DataFrame({
-                "Mutató": ["Bruttó forgalom (HUF)", "Nettó forgalom (HUF)",
-                           "Összes mennyiség (db)", "Átl. bruttó ár (HUF)",
-                           "Átl. nettó ár (HUF)", "Tranzakciók száma",
-                           "Időszak (nap)", "Aktív hónapok"],
-                "Érték": [
-                    f"{df['Bruttó érték'].sum():,.0f}",
-                    f"{df['Nettó érték'].sum():,.0f}",
-                    f"{df['Mennyiség'].sum():,.0f}",
-                    f"{df['Bruttó ár'].mean():,.0f}",
-                    f"{df['Nettó ár'].mean():,.0f}",
-                    f"{len(df):,}",
-                    f"{(meta.get('end', meta.get('start')) - meta.get('start', meta.get('end'))).days + 1 if meta.get('start') else '—'}",
-                    f"{df['kelt'].dt.to_period('M').nunique()}",
-                ],
-            })
-            st.dataframe(stats, use_container_width=True, hide_index=True, height=318)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            # Full table
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section("Teljes értékesítési adatok", f"{len(df):,} sor")
-            show = df.copy()
-            show["kelt"] = show["kelt"].dt.strftime("%Y-%m-%d")
-            st.dataframe(show.reset_index(drop=True), use_container_width=True, height=400)
-            csv = show.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "⬇  CSV letöltése",
-                data=csv,
-                file_name=f"ertekesites_{meta.get('cikkszam','osszes')}_{meta.get('start','')}.csv",
-                mime="text/csv",
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Inventory report ──────────────────────────────────────────────────────
-    if st.session_state.inv_df is not None:
-        with tab_objs[tab_idx]:
-            tab_idx += 1
-            inv  = st.session_state.inv_df
-            meta_inv = st.session_state.last_inv_query
-            keszlet_col = inv.columns[1]
-
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section("Készlet adatok", f"{len(inv):,} termék · {inv[keszlet_col].sum():,.0f} db összesen")
-            inv_sorted = inv.sort_values(keszlet_col, ascending=False)
-            st.dataframe(inv_sorted.reset_index(drop=True), use_container_width=True, height=450)
-            csv = inv_sorted.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "⬇  CSV letöltése",
-                data=csv,
-                file_name=f"keszlet_{meta_inv.get('cikkszam','osszes')}.csv",
-                mime="text/csv",
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Movements report ──────────────────────────────────────────────────────
-    if st.session_state.mozgas_df is not None:
-        with tab_objs[tab_idx]:
-            mdf      = st.session_state.mozgas_df
-            meta_m   = st.session_state.last_mozgas_query
-            total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
-            total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
-
-            st.markdown('<div class="section-card">', unsafe_allow_html=True)
-            section("Mozgástörténet", f"{len(mdf):,} sor · {meta_m.get('start','')} – {meta_m.get('end','')}")
-            c1, c2 = st.columns([1, 3])
-            with c1:
-                st.metric("Beérkező (B)", f"{total_be:,.0f} db")
-                st.metric("Kiadó (K)",    f"{total_ki:,.0f} db")
-                st.metric("Nettó mozgás", f"{total_be - total_ki:+,.0f} db")
-            with c2:
-                show_m = mdf.copy()
-                show_m["kelt"] = show_m["kelt"].dt.strftime("%Y-%m-%d")
-                st.dataframe(show_m.reset_index(drop=True), use_container_width=True, height=320)
-            csv = show_m.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "⬇  CSV letöltése",
-                data=csv,
-                file_name=f"mozgas_{meta_m.get('cikkszam','osszes')}_{meta_m.get('start','')}.csv",
-                mime="text/csv",
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
+# ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    products = load_product_master()
-    render_sidebar(products)
+    load_product_master()   # warm cache
+    render_sidebar()
+
+    # ── Auto-load aggregated data on first open (populates Dashboard) ─────────
+    if st.session_state.sales_df is None and not st.session_state.get("_initial_load_done"):
+        st.session_state["_initial_load_done"] = True
+        _today  = datetime.now().date()
+        _start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
+        _end    = st.session_state.get("end_date",   _today)
+        with funny_loader("Dashboard adatok betöltése...", _load_warn(_start, _end)):
+            _df = fetch_sales(None, _start, _end)
+        if _df is not None:
+            st.session_state.sales_df   = _df
+            st.session_state.last_query = {
+                "cikkszam": None,
+                "label":    ALL_PRODUCTS_LABEL,
+                "start":    _start,
+                "end":      _end,
+            }
+            # Cache product list so it survives later filtered loads
+            _sc = find_sku_col(_df)
+            _nc = find_name_col(_df)
+            if _sc:
+                _prows = (
+                    _df[[_sc] + ([_nc] if _nc else [])]
+                    .drop_duplicates(subset=[_sc])
+                    .dropna(subset=[_sc])
+                    .sort_values(_nc if _nc else _sc)
+                )
+                _cache: dict = {ALL_PRODUCTS_LABEL: None}
+                for _, _r in _prows.iterrows():
+                    _lbl = (
+                        f"{_r[_sc]}  –  {_r[_nc]}"
+                        if _nc and pd.notna(_r.get(_nc))
+                        else str(_r[_sc])
+                    )
+                    _cache[_lbl] = _r[_sc]
+                st.session_state["_prod_opts_cache"] = _cache
 
     page = st.session_state.page
     if page == "dashboard":
         render_dashboard()
     elif page == "analytics":
         render_analytics()
-    elif page == "report":
-        render_report()
 
 
 if __name__ == "__main__":
