@@ -97,10 +97,19 @@ section[data-testid="stSidebar"] > div > div:first-child {
 [data-testid="stSidebar"] .stSelectbox label,
 [data-testid="stSidebar"] .stDateInput label {
     color: #9ca3af !important;
-    font-size: 0.56rem !important;
+    font-size: 0.78rem !important;
     text-transform: uppercase !important;
     letter-spacing: 0.11em !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
+    padding: 0 !important;
+}
+[data-testid="stSidebar"] .stDateInput label p,
+[data-testid="stSidebar"] .stSelectbox label p {
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    color: inherit !important;
+    text-transform: inherit !important;
+    letter-spacing: inherit !important;
 }
 [data-testid="stSidebar"] .stDateInput input {
     background: #f9fafb !important;
@@ -763,7 +772,7 @@ def render_sidebar():
 
         # ── Navigation ────────────────────────────────────────────────────────
         st.markdown(
-            '<div style="padding:0.35rem 1rem 0.15rem;font-size:0.56rem;font-weight:700;'
+            '<div style="padding:0.35rem 0 0.15rem;font-size:0.78rem;font-weight:700;'
             'color:#9ca3af;text-transform:uppercase;letter-spacing:0.11em;">Navigáció</div>',
             unsafe_allow_html=True,
         )
@@ -786,12 +795,6 @@ def render_sidebar():
         st.markdown('<div style="height:1px;background:#f3f4f6;margin:0.35rem 0;"></div>', unsafe_allow_html=True)
 
         # ── Date range ───────────────────────────────────────────────────────
-        st.markdown(
-            '<div style="padding:0 1rem 0.15rem;font-size:0.56rem;font-weight:700;'
-            'color:#9ca3af;text-transform:uppercase;letter-spacing:0.11em;">Időszak</div>',
-            unsafe_allow_html=True,
-        )
-
         _today = datetime.now().date()
         _default_start = _today.replace(year=_today.year - 1)
         start_date = st.date_input(
