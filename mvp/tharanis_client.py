@@ -7,9 +7,13 @@ No WSDL required — envelope built manually from the confirmed working format.
 import os
 import re
 import html
+import hashlib
 import warnings
+import contextlib
 import requests
 import pandas as pd
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -253,15 +257,17 @@ def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[d
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
-              limit: int = 200) -> pd.DataFrame:
+              limit: int = 200, force_refresh: bool = False) -> pd.DataFrame:
     """
     Fetch outgoing invoice line items (kimeno_szamla) from Tharanis V3.
+    Results are cached to disk as Parquet (24h TTL).
 
     Args:
-        start_date: 'YYYY.MM.DD'
-        end_date:   'YYYY.MM.DD'
-        cikkszam:   optional product code filter; None = all products
-        limit:      page size (default 200)
+        start_date:    'YYYY.MM.DD'
+        end_date:      'YYYY.MM.DD'
+        cikkszam:      optional product code filter; None = all products
+        limit:         page size (default 200)
+        force_refresh: bypass disk cache and re-fetch from API
 
     Returns:
         DataFrame with columns:
@@ -269,39 +275,50 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
             Mennyiség (float), Nettó ár (float), Bruttó ár (float),
             Nettó érték (float), Bruttó érték (float)
     """
-    all_records: list[dict] = []
-    page = 0
+    cache_file = _cache_path("kimeno_szamla", start_date, end_date, cikkszam)
 
-    while True:
-        leker_xml = _build_leker(start_date, end_date, cikkszam, page, limit)
-        raw = _post_soap("kimeno_szamla", leker_xml)
-        valasz = _extract_valasz(raw)
+    if not force_refresh and _cache_is_fresh(cache_file):
+        cached = _load_cache(cache_file)
+        if cached is not None:
+            return cached
 
-        if not valasz:
-            break
+    try:
+        all_records: list[dict] = []
+        page = 0
 
-        # Count raw <elem> tags to decide pagination — NOT filtered row count.
-        # The API limit applies to invoices (elems); each invoice may have
-        # many tetelek, and we filter tetelek client-side by cikksz.
-        # Using filtered count would stop after page 0 since a page of 200
-        # invoices typically yields far fewer rows for any single product.
-        raw_elem_count = len(re.findall(r"<elem>", valasz))
-        page_records = _parse_tetelek(valasz, cikkszam_filter=cikkszam)
-        all_records.extend(page_records)
+        while True:
+            leker_xml = _build_leker(start_date, end_date, cikkszam, page, limit)
+            raw = _post_soap("kimeno_szamla", leker_xml)
+            valasz = _extract_valasz(raw)
 
-        if raw_elem_count < limit:
-            break
-        page += 1
+            if not valasz:
+                break
 
-    if not all_records:
-        return pd.DataFrame(
-            columns=["kelt", "Cikkszám", "Mennyiség",
-                     "Nettó ár", "Bruttó ár", "Nettó érték", "Bruttó érték"]
-        )
+            raw_elem_count = len(re.findall(r"<elem>", valasz))
+            page_records = _parse_tetelek(valasz, cikkszam_filter=cikkszam)
+            all_records.extend(page_records)
 
-    df = pd.DataFrame(all_records)
-    df["kelt"] = pd.to_datetime(df["kelt"], format="%Y.%m.%d", errors="coerce")
-    return df
+            if raw_elem_count < limit:
+                break
+            page += 1
+
+        if not all_records:
+            return pd.DataFrame(
+                columns=["kelt", "Cikkszám", "Mennyiség",
+                         "Nettó ár", "Bruttó ár", "Nettó érték", "Bruttó érték"]
+            )
+
+        df = pd.DataFrame(all_records)
+        df["kelt"] = pd.to_datetime(df["kelt"], format="%Y.%m.%d", errors="coerce")
+        _save_cache(df, cache_file)
+        return df
+
+    except requests.RequestException:
+        stale = _load_cache(cache_file)
+        if stale is not None:
+            warnings.warn("Tharanis API elérhetetlen, gyorsítótárazott adat használata.")
+            return stale
+        raise
 
 
 def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame:
@@ -345,15 +362,17 @@ def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame
 
 
 def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = None,
-                        limit: int = 200) -> pd.DataFrame:
+                        limit: int = 200, force_refresh: bool = False) -> pd.DataFrame:
     """
     Fetch warehouse movement history (raktari_mozgas) from Tharanis V3.
+    Results are cached to disk as Parquet (24h TTL).
 
     Args:
-        start_date: 'YYYY.MM.DD'
-        end_date:   'YYYY.MM.DD'
-        cikkszam:   optional product code filter; None = all products
-        limit:      page size (default 200)
+        start_date:    'YYYY.MM.DD'
+        end_date:      'YYYY.MM.DD'
+        cikkszam:      optional product code filter; None = all products
+        limit:         page size (default 200)
+        force_refresh: bypass disk cache and re-fetch from API
 
     Returns:
         DataFrame with columns:
@@ -361,33 +380,101 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
             Mozgástípus (str), Mennyiség (float)
         Irány: B = beérkező (stock in), K = kiadó (stock out)
     """
-    all_records: list[dict] = []
-    page = 0
+    cache_file = _cache_path("raktari_mozgas", start_date, end_date, cikkszam)
 
-    while True:
-        leker_xml = _build_mozgas_leker(start_date, end_date, cikkszam, page, limit)
-        raw = _post_soap("raktari_mozgas", leker_xml)
-        valasz = _extract_valasz(raw)
+    if not force_refresh and _cache_is_fresh(cache_file):
+        cached = _load_cache(cache_file)
+        if cached is not None:
+            return cached
 
-        if not valasz:
-            break
+    try:
+        all_records: list[dict] = []
+        page = 0
 
-        raw_elem_count = len(re.findall(r"<elem>", valasz))
-        page_records = _parse_mozgas(valasz, cikkszam_filter=cikkszam)
-        all_records.extend(page_records)
+        while True:
+            leker_xml = _build_mozgas_leker(start_date, end_date, cikkszam, page, limit)
+            raw = _post_soap("raktari_mozgas", leker_xml)
+            valasz = _extract_valasz(raw)
 
-        if raw_elem_count < limit:
-            break
-        page += 1
+            if not valasz:
+                break
 
-    if not all_records:
-        return pd.DataFrame(
-            columns=["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]
-        )
+            raw_elem_count = len(re.findall(r"<elem>", valasz))
+            page_records = _parse_mozgas(valasz, cikkszam_filter=cikkszam)
+            all_records.extend(page_records)
 
-    df = pd.DataFrame(all_records)
-    df["kelt"] = pd.to_datetime(df["kelt"], format="%Y.%m.%d", errors="coerce")
-    return df
+            if raw_elem_count < limit:
+                break
+            page += 1
+
+        if not all_records:
+            return pd.DataFrame(
+                columns=["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]
+            )
+
+        df = pd.DataFrame(all_records)
+        df["kelt"] = pd.to_datetime(df["kelt"], format="%Y.%m.%d", errors="coerce")
+        _save_cache(df, cache_file)
+        return df
+
+    except requests.RequestException:
+        stale = _load_cache(cache_file)
+        if stale is not None:
+            warnings.warn("Tharanis API elérhetetlen, gyorsítótárazott adat használata.")
+            return stale
+        raise
+
+
+# ── Disk cache (Parquet) ─────────────────────────────────────────────────────
+
+_CACHE_DIR = Path(__file__).parent / ".cache"
+
+
+def _cache_path(entity: str, start_date: str, end_date: str,
+                cikkszam: str | None) -> Path:
+    raw = f"{entity}|{start_date}|{end_date}|{cikkszam or 'ALL'}"
+    key = hashlib.md5(raw.encode()).hexdigest()
+    return _CACHE_DIR / f"{entity}_{key}.parquet"
+
+
+def _cache_is_fresh(path: Path, max_age_hours: float = 24.0) -> bool:
+    if not path.exists():
+        return False
+    age = datetime.now(timezone.utc) - datetime.fromtimestamp(
+        path.stat().st_mtime, tz=timezone.utc
+    )
+    return age.total_seconds() < max_age_hours * 3600
+
+
+def _save_cache(df: pd.DataFrame, path: Path) -> None:
+    try:
+        path.parent.mkdir(exist_ok=True)
+        df.to_parquet(path, index=False)
+    except Exception:
+        pass  # non-fatal
+
+
+def _load_cache(path: Path) -> pd.DataFrame | None:
+    try:
+        return pd.read_parquet(path)
+    except Exception:
+        with contextlib.suppress(OSError):
+            path.unlink()
+        return None
+
+
+def _cleanup_stale_cache(max_age_days: int = 7) -> None:
+    if not _CACHE_DIR.exists():
+        return
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    for f in _CACHE_DIR.glob("*.parquet"):
+        mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+        if mtime < cutoff:
+            with contextlib.suppress(OSError):
+                f.unlink()
+
+
+_cleanup_stale_cache()
 
 
 # ── Quick connection test ────────────────────────────────────────────────────

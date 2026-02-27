@@ -575,6 +575,22 @@ for _k, _v in [
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
+# ── Cached API wrappers (Tier 1: in-memory, shared across sessions) ──────────
+
+@st.cache_data(ttl=timedelta(hours=24), show_spinner=False)
+def _cached_get_sales(start_str: str, end_str: str,
+                      cikkszam: str | None) -> pd.DataFrame | None:
+    """In-memory cache (24h TTL) backed by Parquet disk cache in tharanis_client."""
+    return api.get_sales(start_str, end_str, cikkszam)
+
+
+@st.cache_data(ttl=timedelta(hours=24), show_spinner=False)
+def _cached_get_movements(start_str: str, end_str: str,
+                          cikkszam: str | None) -> pd.DataFrame | None:
+    """In-memory cache (24h TTL) backed by Parquet disk cache in tharanis_client."""
+    return api.get_stock_movements(start_str, end_str, cikkszam)
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def period_key(series: pd.Series, period: str) -> pd.Series:
     if period == "Havi":
@@ -679,9 +695,10 @@ def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
             gridcolor="#f1f5f9", linecolor="#e5e7eb",
             tickfont=dict(color="#9ca3af", size=11), zeroline=False,
         ),
+        showlegend=True,
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-            font=dict(size=11, family="Inter"), bgcolor="rgba(0,0,0,0)",
+            font=dict(size=13, family="Inter", color="#374151"), bgcolor="rgba(0,0,0,0)",
         ),
         hovermode="x unified",
     )
@@ -705,10 +722,16 @@ def hbar_chart(labels, values, color: str, height: int = 300) -> None:
 
 
 # ── Fetch helpers ──────────────────────────────────────────────────────────────
-def fetch_sales(cikkszam, start, end):
+def fetch_sales(cikkszam, start, end, force_refresh=False):
+    start_str = start.strftime("%Y.%m.%d")
+    end_str   = end.strftime("%Y.%m.%d")
     try:
-        df = api.get_sales(start.strftime("%Y.%m.%d"), end.strftime("%Y.%m.%d"), cikkszam)
-        if df.empty:
+        if force_refresh:
+            _cached_get_sales.clear()
+            df = api.get_sales(start_str, end_str, cikkszam, force_refresh=True)
+        else:
+            df = _cached_get_sales(start_str, end_str, cikkszam)
+        if df is None or df.empty:
             st.warning("Nincs értékesítési adat a megadott feltételekre.")
             return None
         return df
@@ -717,12 +740,16 @@ def fetch_sales(cikkszam, start, end):
         return None
 
 
-def fetch_movements(cikkszam, start, end):
+def fetch_movements(cikkszam, start, end, force_refresh=False):
+    start_str = start.strftime("%Y.%m.%d")
+    end_str   = end.strftime("%Y.%m.%d")
     try:
-        df = api.get_stock_movements(
-            start.strftime("%Y.%m.%d"), end.strftime("%Y.%m.%d"), cikkszam
-        )
-        if df.empty:
+        if force_refresh:
+            _cached_get_movements.clear()
+            df = api.get_stock_movements(start_str, end_str, cikkszam, force_refresh=True)
+        else:
+            df = _cached_get_movements(start_str, end_str, cikkszam)
+        if df is None or df.empty:
             st.warning("Nincs mozgásadat.")
             return None
         return df
@@ -805,6 +832,26 @@ def render_sidebar():
             "Záró dátum", key="end_date",
             value=_today, max_value=_today,
         )
+
+        # ── Refresh data button ─────────────────────────────────────────
+        st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
+        if st.button("🔄  Adatok frissítése", key="force_refresh_btn",
+                     use_container_width=True, type="secondary"):
+            _r_start = st.session_state.get("start_date", _default_start)
+            _r_end   = st.session_state.get("end_date", _today)
+            with st.spinner("Friss adatok letöltése az API-ból..."):
+                _r_df = fetch_sales(None, _r_start, _r_end, force_refresh=True)
+            if _r_df is not None:
+                st.session_state.sales_df = _r_df
+                st.session_state.last_query = {
+                    "cikkszam": None,
+                    "label":    ALL_PRODUCTS_LABEL,
+                    "start":    _r_start,
+                    "end":      _r_end,
+                }
+                st.session_state.mozgas_df = None
+                st.session_state.last_mozgas_query = {}
+                st.rerun()
 
         st.markdown(
             '<div style="position:fixed;bottom:1rem;left:0;width:16rem;text-align:center;'
@@ -1132,9 +1179,7 @@ def _analytics_movements():
                     "start": start, "end": end,
                 }
     with col_status:
-        if st.session_state.mozgas_df is not None:
-            n = len(st.session_state.mozgas_df)
-            st.success(f"  {n:,} mozgássor betöltve")
+        pass
 
     mdf = st.session_state.mozgas_df
     if mdf is None:
@@ -1236,22 +1281,31 @@ def main():
     load_product_master()   # warm cache
     render_sidebar()
 
-    # ── Auto-load aggregated data on first open (populates Dashboard) ─────────
-    if st.session_state.sales_df is None and not st.session_state.get("_initial_load_done"):
-        st.session_state["_initial_load_done"] = True
-        _today  = datetime.now().date()
-        _start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
-        _end    = st.session_state.get("end_date",   _today)
-        with funny_loader("Dashboard adatok betöltése...", _load_warn(_start, _end)):
-            _df = fetch_sales(None, _start, _end)
+    # ── Auto-load / reload when sidebar dates change ─────────────────────────
+    _today  = datetime.now().date()
+    _cur_start = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
+    _cur_end   = st.session_state.get("end_date",   _today)
+    _last      = st.session_state.last_query or {}
+    _need_load = (
+        st.session_state.sales_df is None
+        or _last.get("start") != _cur_start
+        or _last.get("end") != _cur_end
+    )
+
+    if _need_load:
+        with funny_loader("Dashboard adatok betöltése...", _load_warn(_cur_start, _cur_end)):
+            _df = fetch_sales(None, _cur_start, _cur_end)
         if _df is not None:
             st.session_state.sales_df   = _df
             st.session_state.last_query = {
                 "cikkszam": None,
                 "label":    ALL_PRODUCTS_LABEL,
-                "start":    _start,
-                "end":      _end,
+                "start":    _cur_start,
+                "end":      _cur_end,
             }
+            # Reset movements since dates changed
+            st.session_state.mozgas_df = None
+            st.session_state.last_mozgas_query = {}
             # Cache product list so it survives later filtered loads
             _sc = find_sku_col(_df)
             _nc = find_name_col(_df)
