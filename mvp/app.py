@@ -924,17 +924,45 @@ def render_dashboard():
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     section_header("Top 10 termék", "Bruttó forgalom szerint", "bar-chart")
     if sc:
+        total_revenue = df["Bruttó érték"].sum()
         grp = df.groupby(sc)["Bruttó érték"].sum().nlargest(10).reset_index()
         grp.columns = ["Cikkszám", "Forgalom"]
         nc = find_name_col(df)
         if nc:
             names = df[[sc, nc]].drop_duplicates().rename(columns={sc: "Cikkszám", nc: "Cikknév"})
             grp = grp.merge(names, on="Cikkszám", how="left")
-            grp["Label"] = grp["Cikknév"].fillna(grp["Cikkszám"]).str[:30]
+            grp["Label"] = grp.apply(
+                lambda r: f"{r['Cikknév'][:28]} ({r['Cikkszám']})" if pd.notna(r.get("Cikknév")) else str(r["Cikkszám"]),
+                axis=1,
+            )
         else:
-            grp["Label"] = grp["Cikkszám"].str[:30]
-        grp = grp.sort_values("Forgalom")
-        hbar_chart(grp["Label"].tolist(), grp["Forgalom"].tolist(), C["blue"], height=300)
+            grp["Label"] = grp["Cikkszám"].astype(str)
+        grp["Pct"] = (grp["Forgalom"] / total_revenue * 100) if total_revenue else 0
+        grp = grp.sort_values("Forgalom").reset_index(drop=True)
+        # Rank: #1 is the highest revenue (last row after ascending sort)
+        grp["Rank"] = list(range(len(grp), 0, -1))
+        grp["RankLabel"] = grp.apply(lambda r: f"#{r['Rank']}  {r['Label']}", axis=1)
+
+        fig = go.Figure(go.Bar(
+            x=grp["Forgalom"], y=grp["RankLabel"], orientation="h",
+            marker=dict(color=C["blue"], opacity=0.85),
+            text=grp.apply(lambda r: f"  {r['Forgalom']:,.0f} Ft  ({r['Pct']:.1f}%)", axis=1),
+            textposition="outside",
+            textfont=dict(size=11, color="#374151"),
+            hovertemplate="%{y}<br><b>%{x:,.0f} Ft</b><br>Arány: %{customdata:.1f}%<extra></extra>",
+            customdata=grp["Pct"],
+        ))
+        fig.update_layout(
+            paper_bgcolor="white", plot_bgcolor="#f9fafb",
+            height=max(350, len(grp) * 38),
+            margin=dict(l=0, r=120, t=0, b=0),
+            font=dict(color="#374151", size=11, family="Inter"),
+            xaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#9ca3af", size=10),
+                       tickformat=",", title=None),
+            yaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#374151", size=10),
+                       automargin=True, title=None),
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Monthly quantities ─────────────────────────────────────────────────────
