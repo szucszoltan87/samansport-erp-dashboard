@@ -1,15 +1,19 @@
 """
-Tharanis API V3 Client
-Calls the Tharanis ERP SOAP V3 endpoint (apiv3.php) using raw HTTP POST.
-No WSDL required — envelope built manually from the confirmed working format.
+Tharanis API V3 Client — Supabase-backed with SOAP fallback.
+
+Primary reads come from Supabase (fast JSON, ~50ms).
+If data is stale, a background Edge Function syncs from the Tharanis SOAP API.
+Falls back to direct SOAP calls if Supabase is not configured.
 """
 
 import os
 import re
 import html
+import json
 import hashlib
 import warnings
 import contextlib
+import threading
 import requests
 import pandas as pd
 from pathlib import Path
@@ -19,6 +23,7 @@ from dotenv import load_dotenv
 load_dotenv()
 warnings.filterwarnings("ignore", message="Unverified HTTPS")
 
+# ── Tharanis SOAP credentials ────────────────────────────────────────────────
 _API_URL    = os.getenv("THARANIS_API_URL",   "https://login.tharanis.hu/apiv3.php")
 _UGYFELKOD  = os.getenv("THARANIS_UGYFELKOD", "7354")
 _CEGKOD     = os.getenv("THARANIS_CEGKOD",    "ab")
@@ -26,8 +31,250 @@ _APIKULCS   = os.getenv("THARANIS_API_KEY",   "")
 
 _HEADERS = {"Content-Type": "text/xml; charset=utf-8"}
 
+# ── Supabase config ──────────────────────────────────────────────────────────
+_SUPABASE_URL  = os.getenv("SUPABASE_URL", "")
+_SUPABASE_KEY  = os.getenv("SUPABASE_ANON_KEY", "")
+_USE_SUPABASE  = bool(_SUPABASE_URL and _SUPABASE_KEY)
 
-# ── Low-level helpers ─────────────────────────────────────────────────────────
+_supabase_client = None
+
+
+def _get_supabase():
+    """Lazy-init Supabase client."""
+    global _supabase_client
+    if _supabase_client is None and _USE_SUPABASE:
+        from supabase import create_client
+        _supabase_client = create_client(_SUPABASE_URL, _SUPABASE_KEY)
+    return _supabase_client
+
+
+# ── Supabase helpers ─────────────────────────────────────────────────────────
+
+def _compute_filter_hash(entity: str, **kwargs) -> str:
+    raw = json.dumps({"entity": entity, **{k: v for k, v in kwargs.items() if v}}, sort_keys=True)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _is_stale(supabase, entity: str, filter_hash: str) -> bool:
+    """Check sync_metadata to see if data needs refreshing."""
+    try:
+        result = supabase.table("sync_metadata") \
+            .select("last_synced_at, ttl_seconds, sync_status") \
+            .eq("entity", entity) \
+            .eq("filter_hash", filter_hash) \
+            .execute()
+
+        if not result.data:
+            return True  # Never synced
+
+        meta = result.data[0]
+        if meta["sync_status"] == "running":
+            return False  # Already syncing
+
+        if not meta["last_synced_at"]:
+            return True
+
+        last_synced = datetime.fromisoformat(meta["last_synced_at"].replace("Z", "+00:00"))
+        age = (datetime.now(timezone.utc) - last_synced).total_seconds()
+        return age > meta["ttl_seconds"]
+    except Exception:
+        return True
+
+
+def _supabase_select_all(supabase, table: str, select: str, filters: list[tuple] = None) -> list[dict]:
+    """Paginated Supabase read to bypass the default 1000-row limit."""
+    all_rows = []
+    page_size = 1000
+    offset = 0
+    while True:
+        query = supabase.table(table).select(select).range(offset, offset + page_size - 1)
+        if filters:
+            for method, args in filters:
+                query = getattr(query, method)(*args)
+        result = query.execute()
+        rows = result.data or []
+        all_rows.extend(rows)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    return all_rows
+
+
+def _trigger_sync_background(entity: str, filters: dict):
+    """Fire-and-forget: trigger the sync-entity Edge Function in a background thread."""
+    def _do_sync():
+        try:
+            supabase = _get_supabase()
+            if supabase:
+                supabase.functions.invoke(
+                    "sync-entity",
+                    invoke_options={"body": {"entity": entity, "filters": filters}}
+                )
+        except Exception:
+            pass  # Non-fatal — stale data is still served
+
+    thread = threading.Thread(target=_do_sync, daemon=True)
+    thread.start()
+
+
+# ── Supabase read functions ──────────────────────────────────────────────────
+
+def _supabase_get_sales(start_date: str, end_date: str,
+                         cikkszam: str | None = None) -> pd.DataFrame | None:
+    """Read sales data from Supabase. Returns None if Supabase is unavailable."""
+    supabase = _get_supabase()
+    if not supabase:
+        return None
+
+    try:
+        # Convert YYYY.MM.DD to YYYY-MM-DD for PostgreSQL
+        start_pg = start_date.replace(".", "-")
+        end_pg = end_date.replace(".", "-")
+
+        filters = [
+            ("gte", ("fulfillment_date", start_pg)),
+            ("lte", ("fulfillment_date", end_pg)),
+        ]
+        if cikkszam:
+            filters.append(("eq", ("sku", cikkszam)))
+
+        rows = _supabase_select_all(
+            supabase, "sales_invoice_lines",
+            "fulfillment_date, sku, quantity, net_price, vat_pct, gross_price, net_value, gross_value",
+            filters
+        )
+
+        if not rows:
+            return pd.DataFrame(
+                columns=["kelt", "Cikkszám", "Mennyiség",
+                         "Nettó ár", "Bruttó ár", "Nettó érték", "Bruttó érték"]
+            )
+
+        df = pd.DataFrame(rows)
+        # Map Supabase columns to legacy Hungarian column names
+        df = df.rename(columns={
+            "fulfillment_date": "kelt",
+            "sku": "Cikkszám",
+            "quantity": "Mennyiség",
+            "net_price": "Nettó ár",
+            "gross_price": "Bruttó ár",
+            "net_value": "Nettó érték",
+            "gross_value": "Bruttó érték",
+        })
+        df = df[["kelt", "Cikkszám", "Mennyiség", "Nettó ár", "Bruttó ár", "Nettó érték", "Bruttó érték"]]
+        df["kelt"] = pd.to_datetime(df["kelt"], errors="coerce")
+
+        # Check freshness and trigger background refresh if stale
+        fh = _compute_filter_hash("kimeno_szamla", start_date=start_date, end_date=end_date, cikkszam=cikkszam)
+        if _is_stale(supabase, "kimeno_szamla", fh):
+            _trigger_sync_background("kimeno_szamla", {
+                "start_date": start_date, "end_date": end_date, "cikkszam": cikkszam
+            })
+
+        return df
+    except Exception:
+        return None
+
+
+def _supabase_get_inventory(cikkszam: str | None = None) -> pd.DataFrame | None:
+    """Read inventory data from Supabase."""
+    supabase = _get_supabase()
+    if not supabase:
+        return None
+
+    try:
+        filters = []
+        if cikkszam:
+            filters.append(("eq", ("sku", cikkszam)))
+
+        rows = _supabase_select_all(
+            supabase, "inventory_snapshot",
+            "sku, total_available, warehouse_1, warehouse_2, warehouse_3, warehouse_4, warehouse_5, warehouse_6",
+            filters
+        )
+
+        if not rows:
+            return pd.DataFrame(
+                columns=["Cikkszám", "Készlet",
+                         "Raktár 1", "Raktár 2", "Raktár 3",
+                         "Raktár 4", "Raktár 5", "Raktár 6"]
+            )
+
+        df = pd.DataFrame(rows)
+        df = df.rename(columns={
+            "sku": "Cikkszám",
+            "total_available": "Készlet",
+            "warehouse_1": "Raktár 1",
+            "warehouse_2": "Raktár 2",
+            "warehouse_3": "Raktár 3",
+            "warehouse_4": "Raktár 4",
+            "warehouse_5": "Raktár 5",
+            "warehouse_6": "Raktár 6",
+        })
+
+        # Check freshness
+        fh = _compute_filter_hash("keszlet", cikkszam=cikkszam)
+        if _is_stale(supabase, "keszlet", fh):
+            _trigger_sync_background("keszlet", {"cikkszam": cikkszam} if cikkszam else {})
+
+        return df
+    except Exception:
+        return None
+
+
+def _supabase_get_movements(start_date: str, end_date: str,
+                             cikkszam: str | None = None) -> pd.DataFrame | None:
+    """Read warehouse movements from Supabase."""
+    supabase = _get_supabase()
+    if not supabase:
+        return None
+
+    try:
+        start_pg = start_date.replace(".", "-")
+        end_pg = end_date.replace(".", "-")
+
+        filters = [
+            ("gte", ("movement_date", start_pg)),
+            ("lte", ("movement_date", end_pg)),
+        ]
+        if cikkszam:
+            filters.append(("eq", ("sku", cikkszam)))
+
+        rows = _supabase_select_all(
+            supabase, "warehouse_movements",
+            "movement_date, sku, direction, movement_type, quantity",
+            filters
+        )
+
+        if not rows:
+            return pd.DataFrame(
+                columns=["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]
+            )
+
+        df = pd.DataFrame(rows)
+        df = df.rename(columns={
+            "movement_date": "kelt",
+            "sku": "Cikkszám",
+            "direction": "Irány",
+            "movement_type": "Mozgástípus",
+            "quantity": "Mennyiség",
+        })
+        df = df[["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]]
+        df["kelt"] = pd.to_datetime(df["kelt"], errors="coerce")
+
+        # Check freshness
+        fh = _compute_filter_hash("raktari_mozgas", start_date=start_date, end_date=end_date, cikkszam=cikkszam)
+        if _is_stale(supabase, "raktari_mozgas", fh):
+            _trigger_sync_background("raktari_mozgas", {
+                "start_date": start_date, "end_date": end_date, "cikkszam": cikkszam
+            })
+
+        return df
+    except Exception:
+        return None
+
+
+# ── Low-level SOAP helpers (fallback) ────────────────────────────────────────
 
 def _tag(xml: str, tag: str) -> str:
     """Return the text content of the first matching XML tag (CDATA-aware)."""
@@ -60,7 +307,6 @@ def _build_envelope(entity: str, leker_xml: str) -> str:
 
 def _build_leker(start_date: str, end_date: str, cikkszam: str | None,
                  page: int = 0, limit: int = 200) -> str:
-    """Build the inner <leker> XML payload for kimeno_szamla. Date format: YYYY.MM.DD"""
     szurok = (
         f"<szuro><mezo>teljdat</mezo><relacio>&gt;=</relacio><ertek>{start_date}</ertek></szuro>"
         f"<szuro><mezo>teljdat</mezo><relacio>&lt;=</relacio><ertek>{end_date}</ertek></szuro>"
@@ -79,7 +325,6 @@ def _build_leker(start_date: str, end_date: str, cikkszam: str | None,
 
 
 def _build_keszlet_leker(cikkszam: str | None, page: int = 0, limit: int = 200) -> str:
-    """Build the inner <leker> XML payload for the keszlet (inventory) entity."""
     if cikkszam:
         szurok = (
             f"<szurok><szuro><mezo>cikksz</mezo><relacio>=</relacio>"
@@ -92,7 +337,6 @@ def _build_keszlet_leker(cikkszam: str | None, page: int = 0, limit: int = 200) 
 
 def _build_mozgas_leker(start_date: str, end_date: str, cikkszam: str | None,
                         page: int = 0, limit: int = 200) -> str:
-    """Build the inner <leker> XML payload for raktari_mozgas. Date format: YYYY.MM.DD"""
     szurok = (
         f"<szuro><mezo>kelt</mezo><relacio>&gt;=</relacio><ertek>{start_date}</ertek></szuro>"
         f"<szuro><mezo>kelt</mezo><relacio>&lt;=</relacio><ertek>{end_date}</ertek></szuro>"
@@ -124,30 +368,20 @@ def _post_soap(entity: str, leker_xml: str) -> str:
 
 
 def _extract_valasz(soap_text: str) -> str:
-    """Pull the inner XML out of the SOAP envelope and check for API errors."""
     m = re.search(r"<return[^>]*>(.*?)</return>", soap_text, re.DOTALL)
     if not m:
         raise ValueError("No <return> element found in SOAP response.")
-
     inner = html.unescape(m.group(1)).strip()
     inner = re.sub(r"^<\?xml[^?]*\?>\s*", "", inner, flags=re.IGNORECASE)
-
     hiba_m = re.search(r"<hiba>(\d+)</hiba>", inner)
     if hiba_m and int(hiba_m.group(1)) != 0:
         msg = _tag(inner, "valasz") or "(no message)"
         raise ValueError(f"Tharanis API hiba {hiba_m.group(1)}: {msg}")
-
     valasz_m = re.search(r"<valasz>(.*?)</valasz>", inner, re.DOTALL)
     return valasz_m.group(1).strip() if valasz_m else ""
 
 
 def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict]:
-    """Parse all <elem>/<tetel> records from a valasz XML block.
-
-    If cikkszam_filter is given, only line items with a matching cikksz are kept.
-    This is necessary because the API cikksz filter operates at the invoice level —
-    it returns whole invoices that contain the product, not just the matching rows.
-    """
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -155,7 +389,6 @@ def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[
         fej = re.search(r"<fej>(.*?)</fej>", elem, re.DOTALL)
         if fej:
             kelt = _tag(fej.group(1), "telj_dat") or kelt
-
         for tet_m in re.finditer(r"<tetel>(.*?)</tetel>", elem, re.DOTALL):
             t = tet_m.group(1)
             cikksz     = _tag(t, "cikksz")
@@ -173,7 +406,6 @@ def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[
                 netto_ertek  = round(netto_ar * menny, 2)
             except (ValueError, TypeError):
                 continue
-
             if cikksz and menny > 0:
                 records.append({
                     "kelt":          kelt,
@@ -188,11 +420,6 @@ def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[
 
 
 def _parse_keszlet(valasz_xml: str) -> list[dict]:
-    """Parse <elem> records from a keszlet (inventory) valasz block.
-
-    Each elem has cikksz and kiadhato1..6 (per-warehouse available qty).
-    Returns one row per SKU with individual warehouse columns and a total.
-    """
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -215,12 +442,6 @@ def _parse_keszlet(valasz_xml: str) -> list[dict]:
 
 
 def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict]:
-    """Parse <elem> records from a raktari_mozgas valasz block.
-
-    Same invoice-level filter caveat as kimeno_szamla: the API returns whole
-    movement documents; we filter tetelek client-side by cikksz.
-    irany: B = beérkező (stock in), K = kiadó (stock out)
-    """
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -229,9 +450,8 @@ def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[d
             continue
         fej   = fej_m.group(1)
         kelt  = _tag(fej, "kelt")
-        irany = _tag(fej, "irany")   # B or K
-        mozgas = _tag(fej, "mozgas") # movement type label
-
+        irany = _tag(fej, "irany")
+        mozgas = _tag(fej, "mozgas")
         for tet_m in re.finditer(r"<tetel>(.*?)</tetel>", elem, re.DOTALL):
             t = tet_m.group(1)
             cikksz = _tag(t, "cikksz")
@@ -259,15 +479,15 @@ def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[d
 def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
               limit: int = 200, force_refresh: bool = False) -> pd.DataFrame:
     """
-    Fetch outgoing invoice line items (kimeno_szamla) from Tharanis V3.
-    Results are cached to disk as Parquet (24h TTL).
+    Fetch outgoing invoice line items (kimeno_szamla).
+    Reads from Supabase first (fast), falls back to direct SOAP if unavailable.
 
     Args:
         start_date:    'YYYY.MM.DD'
         end_date:      'YYYY.MM.DD'
         cikkszam:      optional product code filter; None = all products
-        limit:         page size (default 200)
-        force_refresh: bypass disk cache and re-fetch from API
+        limit:         page size (default 200, used for SOAP fallback only)
+        force_refresh: bypass cache and re-fetch from API
 
     Returns:
         DataFrame with columns:
@@ -275,6 +495,23 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
             Mennyiség (float), Nettó ár (float), Bruttó ár (float),
             Nettó érték (float), Bruttó érték (float)
     """
+    # Try Supabase first (unless force_refresh is set)
+    if _USE_SUPABASE and not force_refresh:
+        df = _supabase_get_sales(start_date, end_date, cikkszam)
+        if df is not None:
+            return df
+
+    # If force_refresh with Supabase, trigger sync then read
+    if _USE_SUPABASE and force_refresh:
+        _trigger_sync_background("kimeno_szamla", {
+            "start_date": start_date, "end_date": end_date, "cikkszam": cikkszam
+        })
+        # Still try to read current data from Supabase
+        df = _supabase_get_sales(start_date, end_date, cikkszam)
+        if df is not None:
+            return df
+
+    # Fallback: direct SOAP call
     cache_file = _cache_path("kimeno_szamla", start_date, end_date, cikkszam)
 
     if not force_refresh and _cache_is_fresh(cache_file):
@@ -285,19 +522,15 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
     try:
         all_records: list[dict] = []
         page = 0
-
         while True:
             leker_xml = _build_leker(start_date, end_date, cikkszam, page, limit)
             raw = _post_soap("kimeno_szamla", leker_xml)
             valasz = _extract_valasz(raw)
-
             if not valasz:
                 break
-
             raw_elem_count = len(re.findall(r"<elem>", valasz))
             page_records = _parse_tetelek(valasz, cikkszam_filter=cikkszam)
             all_records.extend(page_records)
-
             if raw_elem_count < limit:
                 break
             page += 1
@@ -323,30 +556,30 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
 
 def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame:
     """
-    Fetch current inventory levels (keszlet) from Tharanis V3.
-
-    Args:
-        cikkszam: optional product code filter; None = all products
-        limit:    page size (default 200)
+    Fetch current inventory levels (keszlet).
+    Reads from Supabase first, falls back to direct SOAP.
 
     Returns:
         DataFrame with columns:
             Cikkszám (str), Készlet (float), Raktár 1..6 (float)
     """
+    # Try Supabase first
+    if _USE_SUPABASE:
+        df = _supabase_get_inventory(cikkszam)
+        if df is not None:
+            return df
+
+    # Fallback: direct SOAP call
     all_records: list[dict] = []
     page = 0
-
     while True:
         leker_xml = _build_keszlet_leker(cikkszam, page, limit)
         raw = _post_soap("keszlet", leker_xml)
         valasz = _extract_valasz(raw)
-
         if not valasz:
             break
-
         page_records = _parse_keszlet(valasz)
         all_records.extend(page_records)
-
         if len(page_records) < limit:
             break
         page += 1
@@ -364,22 +597,29 @@ def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame
 def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = None,
                         limit: int = 200, force_refresh: bool = False) -> pd.DataFrame:
     """
-    Fetch warehouse movement history (raktari_mozgas) from Tharanis V3.
-    Results are cached to disk as Parquet (24h TTL).
-
-    Args:
-        start_date:    'YYYY.MM.DD'
-        end_date:      'YYYY.MM.DD'
-        cikkszam:      optional product code filter; None = all products
-        limit:         page size (default 200)
-        force_refresh: bypass disk cache and re-fetch from API
+    Fetch warehouse movement history (raktari_mozgas).
+    Reads from Supabase first, falls back to direct SOAP.
 
     Returns:
         DataFrame with columns:
             kelt (datetime), Cikkszám (str), Irány (str: B/K),
             Mozgástípus (str), Mennyiség (float)
-        Irány: B = beérkező (stock in), K = kiadó (stock out)
     """
+    # Try Supabase first
+    if _USE_SUPABASE and not force_refresh:
+        df = _supabase_get_movements(start_date, end_date, cikkszam)
+        if df is not None:
+            return df
+
+    if _USE_SUPABASE and force_refresh:
+        _trigger_sync_background("raktari_mozgas", {
+            "start_date": start_date, "end_date": end_date, "cikkszam": cikkszam
+        })
+        df = _supabase_get_movements(start_date, end_date, cikkszam)
+        if df is not None:
+            return df
+
+    # Fallback: direct SOAP call
     cache_file = _cache_path("raktari_mozgas", start_date, end_date, cikkszam)
 
     if not force_refresh and _cache_is_fresh(cache_file):
@@ -390,19 +630,15 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
     try:
         all_records: list[dict] = []
         page = 0
-
         while True:
             leker_xml = _build_mozgas_leker(start_date, end_date, cikkszam, page, limit)
             raw = _post_soap("raktari_mozgas", leker_xml)
             valasz = _extract_valasz(raw)
-
             if not valasz:
                 break
-
             raw_elem_count = len(re.findall(r"<elem>", valasz))
             page_records = _parse_mozgas(valasz, cikkszam_filter=cikkszam)
             all_records.extend(page_records)
-
             if raw_elem_count < limit:
                 break
             page += 1
@@ -425,7 +661,7 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
         raise
 
 
-# ── Disk cache (Parquet) ─────────────────────────────────────────────────────
+# ── Disk cache (Parquet) — used as SOAP fallback only ─────────────────────
 
 _CACHE_DIR = Path(__file__).parent / ".cache"
 
@@ -451,7 +687,7 @@ def _save_cache(df: pd.DataFrame, path: Path) -> None:
         path.parent.mkdir(exist_ok=True)
         df.to_parquet(path, index=False)
     except Exception:
-        pass  # non-fatal
+        pass
 
 
 def _load_cache(path: Path) -> pd.DataFrame | None:
@@ -484,6 +720,7 @@ if __name__ == "__main__":
 
     print("=" * 60)
     print("Tharanis V3 API -- connection test")
+    print(f"Supabase mode: {'ON' if _USE_SUPABASE else 'OFF (direct SOAP)'}")
     print("=" * 60)
 
     today = datetime.now()
@@ -497,8 +734,8 @@ if __name__ == "__main__":
         print("No data returned.")
     else:
         print(f"Records fetched : {len(df)}")
-        print(f"Unique products : {df['Cikkszam'].nunique()}")
-        print(f"Total Brutto ert: {df['Brutto ertek'].sum():,.0f} HUF")
+        print(f"Unique products : {df['Cikkszám'].nunique()}")
+        print(f"Total Bruttó ért: {df['Bruttó érték'].sum():,.0f} HUF")
         print()
         print("Sample (first 5 rows):")
         print(df.head().to_string(index=False))
