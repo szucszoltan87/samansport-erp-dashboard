@@ -941,10 +941,10 @@ def render_dashboard():
         grp = grp.sort_values("Forgalom").reset_index(drop=True)
         # Rank: #1 is the highest revenue (last row after ascending sort)
         grp["Rank"] = list(range(len(grp), 0, -1))
-        grp["RankLabel"] = grp.apply(lambda r: f"#{r['Rank']}  {r['Label']}", axis=1)
+        grp["RankLabel"] = grp.apply(lambda r: f"#{int(r['Rank'])}  {r['Label']}", axis=1)
 
         fig = go.Figure(go.Bar(
-            x=grp["Forgalom"], y=grp["RankLabel"], orientation="h",
+            x=grp["Forgalom"], y=grp["RankLabel"].tolist(), orientation="h",
             marker=dict(color=C["blue"], opacity=0.85),
             text=grp.apply(lambda r: f"  {r['Forgalom']:,.0f} Ft  ({r['Pct']:.1f}%)", axis=1),
             textposition="outside",
@@ -959,7 +959,8 @@ def render_dashboard():
             font=dict(color="#374151", size=11, family="Inter"),
             xaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#9ca3af", size=10),
                        tickformat=",", title=None),
-            yaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#374151", size=10),
+            yaxis=dict(type="category", gridcolor="#f1f5f9",
+                       tickfont=dict(color="#374151", size=10),
                        automargin=True, title=None),
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
