@@ -1002,11 +1002,7 @@ def render_dashboard():
 
 
 # ── Analytics – Sales view ─────────────────────────────────────────────────────
-def _analytics_sales(load_triggered: bool = False):
-    _today = datetime.now().date()
-    start  = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
-    end    = st.session_state.get("end_date",   _today)
-
+def _analytics_sales():
     # ── Pre-load: product selector (full-width) ───────────────────────────────
     products = load_product_master()
     prod_opts: dict = {ALL_PRODUCTS_LABEL: None}
@@ -1073,73 +1069,40 @@ def _analytics_sales(load_triggered: bool = False):
     st.session_state["_sel_sku"]     = sel_sku
     st.session_state["_sel_product"] = sel_label  # keep for legacy references
 
-    if load_triggered:
-        cikkszam = None if sel_sku == ALL_PRODUCTS_CODE else sel_sku
-        warn = _load_warn(start, end)
-        with funny_loader("Értékesítési adatok betöltése...", warn):
-            df_new = fetch_sales(cikkszam, start, end)
-        if df_new is not None:
-            st.session_state.sales_df = df_new
-            st.session_state.last_query = {
-                "cikkszam": cikkszam,
-                "label":    sel_label,
-                "start":    start,
-                "end":      end,
-            }
-            st.session_state["_sel_sku"]     = sel_sku
-            st.session_state["_sel_product"] = sel_label
+    # ── Product details (shown when a specific product is selected) ──────────
+    if sel_sku != ALL_PRODUCTS_CODE:
+        _sku_code = sel_sku
+        _sku_name = sel_label.split("  –  ", 1)[1] if "  –  " in sel_label else sel_label
+        st.markdown(
+            f'<div style="padding:0.5rem 0 0.25rem;color:#374151;font-size:0.92rem;">'
+            f'<b>Cikkszám:</b> {_sku_code} &nbsp;&middot;&nbsp; '
+            f'<b>Terméknév:</b> {_sku_name}</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── Guard: nothing loaded yet ─────────────────────────────────────────────
     df   = st.session_state.sales_df
     meta = st.session_state.last_query or {}
     if df is None:
-        st.markdown('<div style="height:0.75rem;"></div>', unsafe_allow_html=True)
         empty_state(
             "bar-chart",
             "Nincs betöltött adat",
-            "Válasszon terméket a fenti listából, majd kattintson a <b>Betöltése</b> gombra.",
+            "Az adatok automatikusan betöltődnek, vagy kattintson az <b>Adatok frissítése</b> gombra az oldalsávban.",
         )
         return
 
-    # ── Optional in-page filter (only when all products were loaded) ──────────
+    # ── Filter by selected product from the top selectbox ─────────────────────
     sc = find_sku_col(df)
     nc = find_name_col(df)
     loaded_cikkszam = meta.get("cikkszam")   # None → all products in memory
-    display_label   = meta.get("label", "—")
-    filter_sku      = loaded_cikkszam        # tracks currently-viewed SKU
+    display_label   = sel_label
+    filter_sku      = None if sel_sku == ALL_PRODUCTS_CODE else sel_sku
 
-    if loaded_cikkszam is None and sc:
-        # All products loaded – let user drill into one without re-fetching
-        sku_rows = (
-            df[[sc] + ([nc] if nc else [])]
-            .drop_duplicates(subset=[sc])
-            .dropna(subset=[sc])
-            .sort_values(sc)
-        )
-        sku_label_map: dict = {ALL_PRODUCTS_LABEL: None}
-        for _, r in sku_rows.iterrows():
-            lbl = (f"{r[sc]}  –  {r[nc]}" if nc and pd.notna(r.get(nc)) else str(r[sc]))
-            sku_label_map[lbl] = r[sc]
-        info_banner(
-            f"Összes termék betöltve ({len(sku_label_map) - 1:,} db). "
-            "Az alábbi szűrővel egy termékre szűkíthet újratöltés nélkül.",
-            "filter",
-        )
-        inner_choice = st.selectbox(
-            "Termék szűrő", list(sku_label_map.keys()), key="an_sku_filter",
-        )
-        inner_sku = sku_label_map[inner_choice]
-        if inner_sku is not None:
-            df            = df[df[sc] == inner_sku]
-            display_label = inner_choice
-            filter_sku    = inner_sku
-    else:
-        # Specific product loaded – just show a status line
-        info_banner(
-            f"Betöltve: {meta.get('label', '—')}  ·  "
-            f"{meta.get('start', '')} – {meta.get('end', '')}  ·  {len(df):,} tranzakció",
-            "database",
-        )
+    if loaded_cikkszam is None and sc and sel_sku != ALL_PRODUCTS_CODE:
+        # All products loaded – filter to the selected one without re-fetching
+        df            = df[df[sc] == sel_sku]
+        display_label = sel_label
+        filter_sku    = sel_sku
 
     # ── Controls row ─────────────────────────────────────────────────────────
     ctrl1, ctrl2, ctrl3 = st.columns([4, 2, 2])
@@ -1156,7 +1119,6 @@ def _analytics_sales(load_triggered: bool = False):
     grouped = df2.groupby("Periódus")[col_name].agg(agg_fn).reset_index().sort_values("Periódus")
 
     # ── Chart ─────────────────────────────────────────────────────────────────
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
     section_header(
         metric,
         f"{display_label}  ·  {meta.get('start', '')} – {meta.get('end', '')}",
@@ -1180,7 +1142,6 @@ def _analytics_sales(load_triggered: bool = False):
         ))
     fig.update_layout(yaxis_title=ytitle)
     chart_style(fig, height=380)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Summary metrics (always reflect current filter/product) ──────────────
     m1, m2, m3, m4, m5 = st.columns(5)
@@ -1234,7 +1195,6 @@ def _analytics_movements():
 
     mdf = st.session_state.mozgas_df
     if mdf is None:
-        st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
         empty_state("activity", "Nincs mozgástörténet", "Kattints a gombra a mozgásadatok betöltéséhez.")
         return
 
@@ -1252,7 +1212,6 @@ def _analytics_movements():
     be_v   = [be_map.get(p, 0) for p in all_p]
     ki_v   = [ki_map.get(p, 0) for p in all_p]
 
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
     section_header(
         "Raktári mozgások",
         f"{meta_m.get('start', '')} – {meta_m.get('end', '')}",
@@ -1273,7 +1232,6 @@ def _analytics_movements():
                                  mode="lines+markers", line=dict(color=C["orange"], width=2.5),
                                  marker=dict(size=6)))
     chart_style(fig, height=380)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
     total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
@@ -1299,17 +1257,7 @@ def _analytics_movements():
 
 # ── Analytics page ─────────────────────────────────────────────────────────────
 def render_analytics():
-    meta = st.session_state.last_query or {}
-
-    # Page header + top-right load button on the same row
-    hdr_col, btn_col = st.columns([7, 1])
-    with hdr_col:
-        page_header("Analitika", meta.get("label", "—"))
-    with btn_col:
-        st.write("")
-        load_triggered = st.button(
-            "Betöltés", key="an_load_top", type="primary", use_container_width=True,
-        )
+    page_header("Analitika")
 
     view = st.radio(
         "Adatnézet",
@@ -1318,10 +1266,8 @@ def render_analytics():
         key="an_view",
     )
 
-    st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
-
     if view == "Értékesítés":
-        _analytics_sales(load_triggered=load_triggered)
+        _analytics_sales()
     else:
         _analytics_movements()
 
