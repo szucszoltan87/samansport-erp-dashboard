@@ -1,0 +1,18 @@
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+
+[functions.sync-entity]
+verify_jwt = false
+
+[functions.check-freshness]
+verify_jwt = false
+
+[functions.hydrate-all]
+verify_jwt = false
+
+[functions.cron-refresh]
+verify_jwt = false
