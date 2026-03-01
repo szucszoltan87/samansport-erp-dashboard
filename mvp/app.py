@@ -681,7 +681,7 @@ def info_banner(text: str, icon_name: str = "info") -> None:
 
 def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
     fig.update_layout(
-        title=dict(text=title, font=dict(size=13, color="#374151", family="Inter"), x=0) if title else None,
+        title=dict(text=title, font=dict(size=13, color="#374151", family="Inter"), x=0) if title else dict(text=""),
         paper_bgcolor="white",
         plot_bgcolor="#f9fafb",
         height=height,
@@ -902,26 +902,47 @@ def render_dashboard():
                  sub=f"{df['kelt'].dt.year.nunique()} aktív év"),
     )
 
-    # ── Revenue trend ──────────────────────────────────────────────────────────
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    section_header("Havi bruttó forgalom", "Értékesítési trend az időszakra", "trending-up")
+    # ── Period toggle for dashboard charts ────────────────────────────────────
+    dash_period = st.radio(
+        "Periódus", ["Éves", "Havi", "Heti", "Napi"],
+        horizontal=True, key="dash_period", index=1,
+    )
+    _period_map = {"Éves": "Y", "Havi": "M", "Heti": "W", "Napi": "D"}
     df2 = df.copy()
-    df2["Hónap"] = df2["kelt"].dt.to_period("M").astype(str)
-    monthly = df2.groupby("Hónap")["Bruttó érték"].sum().reset_index().sort_values("Hónap")
+    if dash_period == "Napi":
+        df2["Periódus"] = df2["kelt"].dt.strftime("%Y-%m-%d")
+    elif dash_period == "Heti":
+        df2["Periódus"] = df2["kelt"].dt.to_period("W").astype(str)
+    elif dash_period == "Éves":
+        df2["Periódus"] = df2["kelt"].dt.to_period("Y").astype(str)
+    else:
+        df2["Periódus"] = df2["kelt"].dt.to_period("M").astype(str)
+
+    # ── Revenue trend ──────────────────────────────────────────────────────────
+    section_header("Bruttó forgalom", f"{dash_period} bontás  ·  Értékesítési trend az időszakra", "trending-up")
+    monthly = df2.groupby("Periódus")["Bruttó érték"].sum().reset_index().sort_values("Periódus")
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=monthly["Hónap"], y=monthly["Bruttó érték"],
+        x=monthly["Periódus"], y=monthly["Bruttó érték"],
         mode="lines", name="Bruttó forgalom",
         line=dict(color=C["blue"], width=2.5),
         fill="tozeroy", fillcolor="rgba(37,99,235,0.08)",
         hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
     ))
     chart_style(fig, height=260)
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Quantities chart ──────────────────────────────────────────────────────
+    section_header("Értékesített mennyiség", f"{dash_period} bontás", "activity")
+    mq = df2.groupby("Periódus")["Mennyiség"].sum().reset_index().sort_values("Periódus")
+    fig_q = go.Figure(go.Bar(
+        x=mq["Periódus"], y=mq["Mennyiség"],
+        marker=dict(color=C["indigo"], opacity=0.8),
+        hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
+    ))
+    chart_style(fig_q, height=230)
 
     # ── Top 10 products ────────────────────────────────────────────────────────
     sc = find_sku_col(df)
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
     section_header("Top 10 termék", "Bruttó forgalom szerint", "bar-chart")
     if sc:
         total_revenue = df["Bruttó érték"].sum()
@@ -938,45 +959,46 @@ def render_dashboard():
         else:
             grp["Label"] = grp["Cikkszám"].astype(str)
         grp["Pct"] = (grp["Forgalom"] / total_revenue * 100) if total_revenue else 0
+        # If name column wasn't in the grouped data, try the product master CSV
+        if "Cikknév" not in grp.columns or grp["Cikknév"].isna().all():
+            pm = load_product_master()
+            if not pm.empty:
+                grp = grp.drop(columns=["Cikknév"], errors="ignore")
+                grp = grp.merge(
+                    pm[["Cikkszám", "Cikknév"]].drop_duplicates(subset=["Cikkszám"]),
+                    on="Cikkszám", how="left",
+                )
+                grp["Label"] = grp.apply(
+                    lambda r: f"{r['Cikknév'][:28]} ({r['Cikkszám']})" if pd.notna(r.get("Cikknév")) else str(r["Cikkszám"]),
+                    axis=1,
+                )
         grp = grp.sort_values("Forgalom").reset_index(drop=True)
-        # Rank: #1 is the highest revenue (last row after ascending sort)
-        grp["Rank"] = list(range(len(grp), 0, -1))
-        grp["RankLabel"] = grp.apply(lambda r: f"#{int(r['Rank'])}  {r['Label']}", axis=1)
 
+        max_val = grp["Forgalom"].max()
         fig = go.Figure(go.Bar(
-            x=grp["Forgalom"], y=grp["RankLabel"].tolist(), orientation="h",
+            x=grp["Forgalom"], y=grp["Label"].tolist(), orientation="h",
             marker=dict(color=C["blue"], opacity=0.85),
             text=grp.apply(lambda r: f"  {r['Forgalom']:,.0f} Ft  ({r['Pct']:.1f}%)", axis=1),
             textposition="outside",
             textfont=dict(size=11, color="#374151"),
             hovertemplate="%{y}<br><b>%{x:,.0f} Ft</b><br>Arány: %{customdata:.1f}%<extra></extra>",
             customdata=grp["Pct"],
+            cliponaxis=False,
         ))
         fig.update_layout(
             paper_bgcolor="white", plot_bgcolor="#f9fafb",
-            height=max(350, len(grp) * 38),
-            margin=dict(l=0, r=120, t=0, b=0),
+            height=max(400, len(grp) * 42),
+            margin=dict(l=0, r=20, t=0, b=30),
             font=dict(color="#374151", size=11, family="Inter"),
-            xaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#9ca3af", size=10),
-                       tickformat=",", title=None),
+            xaxis=dict(range=[0, max_val * 1.35], gridcolor="#f1f5f9",
+                       tickfont=dict(color="#9ca3af", size=10),
+                       tickformat=",",
+                       title=dict(text="Bruttó forgalom (HUF)", font=dict(size=11, color="#9ca3af"))),
             yaxis=dict(type="category", gridcolor="#f1f5f9",
                        tickfont=dict(color="#374151", size=10),
                        automargin=True, title=None),
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Monthly quantities ─────────────────────────────────────────────────────
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    section_header("Havi értékesített mennyiség", "", "activity")
-    mq = df2.groupby("Hónap")["Mennyiség"].sum().reset_index().sort_values("Hónap")
-    fig_q = go.Figure(go.Bar(
-        x=mq["Hónap"], y=mq["Mennyiség"],
-        marker=dict(color=C["indigo"], opacity=0.8),
-        hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
-    ))
-    chart_style(fig_q, height=230)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ── Analytics – Sales view ─────────────────────────────────────────────────────
