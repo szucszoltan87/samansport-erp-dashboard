@@ -31,6 +31,8 @@ st.set_page_config(
 # ── SVG Icon Library ───────────────────────────────────────────────────────────
 _ICONS = {
     "grid":         '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+    "layout-dashboard": '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+    "chart-column": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
     "bar-chart":    '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>',
     "file-text":    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
     "dollar-sign":  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
@@ -51,6 +53,8 @@ _ICONS = {
     "calendar":     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
     "filter":       '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
     "arrow-up-right":'<line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>',
+    "chevron-left":  '<polyline points="15 18 9 12 15 6"/>',
+    "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
     "settings":     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     "log-out":      '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
     "user":         '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
@@ -65,390 +69,377 @@ def svg(name: str, size: int = 16, color: str = "currentColor") -> str:
     )
 
 # ── Global CSS ─────────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+_sb_w = "15rem"
 
-* { font-family: 'Inter', sans-serif !important; }
+st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+* {{ font-family: 'Inter', sans-serif !important; }}
 
 /* ── Layout ── */
-.main .block-container { padding: 2rem 2.5rem 2rem; max-width: 100%; }
-.main { background-color: #f8fafc; }
+.main .block-container {{ padding: 1.5rem 1rem 1.5rem 1.75rem; max-width: 100%; }}
+.main {{ background-color: #f8fafc; }}
 
 /* ── Hide Streamlit chrome ── */
-#MainMenu, footer, header { visibility: hidden; }
-[data-testid="stDecoration"] { display: none; }
-[data-testid="stToolbar"] { display: none; }
+#MainMenu, footer, header {{ visibility: hidden; }}
+[data-testid="stDecoration"] {{ display: none; }}
+[data-testid="stToolbar"] {{ display: none; }}
 
-/* ── Sidebar – dark charcoal ── */
-[data-testid="stSidebar"] > div:first-child {
-    background: #1c1c2e;
-    padding: 0;
-    border-right: none;
-}
-[data-testid="stSidebarUserContent"] {
-    padding-top: 0 !important;
-}
-section[data-testid="stSidebar"] > div > div:first-child {
-    padding-top: 0 !important;
-}
-
-[data-testid="stSidebar"] .stMarkdown,
-[data-testid="stSidebar"] .stMarkdown p { color: #a0a3b1; }
-
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stDateInput label {
-    color: #6b7085 !important;
-    font-size: 0.72rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.11em !important;
-    font-weight: 700 !important;
+/* ── Sidebar frame ── */
+section[data-testid="stSidebar"] {{
+    width: {_sb_w} !important;
+    min-width: {_sb_w} !important;
+    max-width: {_sb_w} !important;
+}}
+section[data-testid="stSidebar"] > div {{
+    background: #221e1b !important;
     padding: 0 !important;
-}
-[data-testid="stSidebar"] .stDateInput label p,
-[data-testid="stSidebar"] .stSelectbox label p {
-    font-size: inherit !important;
-    font-weight: inherit !important;
-    color: inherit !important;
-    text-transform: inherit !important;
-    letter-spacing: inherit !important;
-}
-[data-testid="stSidebar"] .stDateInput input {
-    background: rgba(255,255,255,0.06) !important;
-    border-color: rgba(255,255,255,0.1) !important;
-    color: #e2e4ea !important;
-    border-radius: 8px !important;
-    font-size: 0.72rem !important;
-}
+    border-right: none !important;
+    width: {_sb_w} !important;
+    overflow: hidden !important;
+    height: 100vh !important;
+}}
+/* Hide EVERY native sidebar chrome button */
+section[data-testid="stSidebar"] [data-testid*="Collapse"],
+section[data-testid="stSidebar"] [data-testid*="collapse"],
+[data-testid="collapsedControl"],
+[data-testid*="baseButton-header"],
+section[data-testid="stSidebar"] > div > button {{
+    display: none !important;
+}}
+[data-testid="stSidebarUserContent"] {{
+    padding: 0 !important;
+    height: 100% !important;
+}}
 
-/* ── Sidebar nav buttons – dark ── */
-[data-testid="stSidebar"] div.stButton > button {
+/* ── Sidebar: zero gaps between elements ── */
+[data-testid="stSidebar"] .element-container {{ margin: 0 !important; }}
+[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"] {{ gap: 0 !important; }}
+[data-testid="stSidebar"] .stMarkdown {{ margin: 0 !important; }}
+[data-testid="stSidebar"] .stMarkdown p {{ margin: 0 !important; }}
+
+/* ── Sidebar nav buttons: transparent, overlaid on HTML nav rows ── */
+[data-testid="stSidebar"] div.stButton {{
+    margin-top: -2.1rem !important;
+    margin-bottom: 0 !important;
+    padding: 0 0.75rem !important;
+    position: relative;
+    z-index: 10;
+}}
+[data-testid="stSidebar"] div.stButton > button {{
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    color: #a0a3b1 !important;
+    color: transparent !important;
     text-align: left !important;
     width: 100% !important;
-    padding: 0.5rem 0.75rem !important;
-    border-radius: 8px !important;
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-    transition: background 0.15s, color 0.15s !important;
-    justify-content: flex-start !important;
-}
-[data-testid="stSidebar"] div.stButton > button:hover {
-    background: rgba(255,255,255,0.06) !important;
-    color: #ffffff !important;
-    border: none !important;
-}
-/* Active nav – coral accent */
-[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-    background: rgba(231,76,60,0.15) !important;
-    color: #e74c3c !important;
-    font-weight: 600 !important;
-    border: none !important;
-}
-/* Secondary nav buttons */
-[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
+    height: 2.1rem !important;
+    padding: 0 !important;
+    border-radius: 0.5rem !important;
+    font-size: 0 !important;
+    min-height: 0 !important;
+    cursor: pointer !important;
+}}
+/* Hover on inactive nav: invisible button stays transparent, HTML row changes */
+[data-testid="stSidebar"] div.stButton > button:hover {{
     background: transparent !important;
-    color: #a0a3b1 !important;
     border: none !important;
-    margin-top: 0.1rem !important;
-    font-size: 0.82rem !important;
-}
-[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
-    background: rgba(255,255,255,0.06) !important;
+}}
+/* When hovering inactive button, style the preceding HTML row: background + white text + white icon */
+[data-testid="stSidebar"] .element-container:has(+ .element-container div.stButton > button:not([kind="primary"]):hover) div[style*="transparent"] {{
+    background: #322c29 !important;
     color: #ffffff !important;
+}}
+[data-testid="stSidebar"] .element-container:has(+ .element-container div.stButton > button:not([kind="primary"]):hover) div[style*="transparent"] svg {{
+    stroke: #ffffff !important;
+}}
+[data-testid="stSidebar"] div.stButton > button[kind="primary"] {{
+    background: transparent !important;
     border: none !important;
-}
-[data-testid="stSidebar"] .stSuccess {
-    background: rgba(16,185,129,0.1) !important;
-    color: #10b981 !important;
-    border: 1px solid rgba(16,185,129,0.2) !important;
-    border-radius: 8px !important;
-    font-size: 0.72rem !important;
-    padding: 0.3rem 0.65rem !important;
-}
+}}
+[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {{
+    background: transparent !important;
+    border: none !important;
+}}
 
 /* ── KPI cards ── */
-.kpi-grid {
+.kpi-grid {{
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.625rem;
-    margin-bottom: 0.75rem;
-}
-.kpi-card {
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+}}
+.kpi-card {{
     background: white;
     border-radius: 10px;
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
     border: 1px solid #e5e7eb;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-}
-.kpi-left { flex: 1; min-width: 0; }
-.kpi-label {
-    font-size: 0.72rem;
+}}
+.kpi-left {{ flex: 1; min-width: 0; }}
+.kpi-label {{
+    font-size: 0.55rem;
     font-weight: 500;
     color: #6b7280;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.25rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-.kpi-value {
-    font-size: 1.35rem;
+}}
+.kpi-value {{
+    font-size: 0.92rem;
     font-weight: 800;
     color: #111827;
     line-height: 1.1;
     letter-spacing: -0.03em;
-}
-.kpi-sub {
-    font-size: 0.7rem;
+}}
+.kpi-sub {{
+    font-size: 0.52rem;
     font-weight: 500;
     color: #9ca3af;
-    margin-top: 0.25rem;
-}
-.kpi-icon-box {
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
+    margin-top: 0.2rem;
+}}
+.kpi-icon-box {{
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    margin-left: 0.625rem;
-}
+    margin-left: 0.5rem;
+}}
 
 /* ── Section card ── */
-.section-card {
+.section-card {{
     background: white;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid #e5e7eb;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    padding: 1.5rem 1.5rem 1rem;
-    margin-bottom: 1.25rem;
-}
-.section-title {
-    font-size: 0.95rem;
+    padding: 1.25rem 1.25rem 0.75rem;
+    margin-bottom: 1rem;
+}}
+.section-title {{
+    font-size: 0.72rem;
     font-weight: 700;
     color: #111827;
     letter-spacing: -0.01em;
     display: flex;
     align-items: center;
-    gap: 0.45rem;
-    margin-bottom: 0.2rem;
-}
-.section-sub {
-    font-size: 0.78rem;
+    gap: 0.4rem;
+    margin-bottom: 0.15rem;
+}}
+.section-sub {{
+    font-size: 0.58rem;
     color: #9ca3af;
-    margin-bottom: 0.875rem;
-}
+    margin-bottom: 0.75rem;
+}}
 
 /* ── Page header ── */
-.page-hdr { margin-bottom: 1.5rem; }
-.page-hdr-title {
-    font-size: 1.625rem;
+.page-hdr {{ margin-bottom: 1.25rem; }}
+.page-hdr-title {{
+    font-size: 1.12rem;
     font-weight: 800;
     color: #111827;
     letter-spacing: -0.03em;
-}
-.page-hdr-sub {
-    font-size: 0.875rem;
+}}
+.page-hdr-sub {{
+    font-size: 0.65rem;
     color: #6b7280;
-    margin-top: 0.25rem;
-}
+    margin-top: 0.2rem;
+}}
 
 /* ── Tabs ── */
-.stTabs [data-baseweb="tab-list"] {
+.stTabs [data-baseweb="tab-list"] {{
     background: #f3f4f6;
-    border-radius: 10px;
-    padding: 0.25rem;
-    gap: 0.15rem;
-    border-bottom: none !important;
-}
-.stTabs [data-baseweb="tab"] {
     border-radius: 8px;
-    padding: 0.4rem 1.1rem;
-    font-size: 0.85rem;
+    padding: 0.2rem;
+    gap: 0.1rem;
+    border-bottom: none !important;
+}}
+.stTabs [data-baseweb="tab"] {{
+    border-radius: 6px;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.65rem;
     font-weight: 500;
     color: #6b7280;
     background: transparent;
     border: none;
-}
-.stTabs [aria-selected="true"] {
+}}
+.stTabs [aria-selected="true"] {{
     background: white !important;
     color: #111827 !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.stTabs [data-baseweb="tab-panel"] { padding-top: 1.25rem; }
+}}
+.stTabs [data-baseweb="tab-panel"] {{ padding-top: 1rem; }}
 
 /* ── st.metric ── */
-[data-testid="stMetricValue"] {
-    font-size: 1rem !important;
+[data-testid="stMetricValue"] {{
+    font-size: 0.76rem !important;
     font-weight: 700 !important;
     color: #111827 !important;
-}
-[data-testid="stMetricLabel"] {
-    font-size: 0.65rem !important;
+}}
+[data-testid="stMetricLabel"] {{
+    font-size: 0.51rem !important;
     color: #9ca3af !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
     font-weight: 600 !important;
-}
+}}
 
 /* ── Radio controls ── */
-.stRadio > label {
-    font-size: 0.68rem !important;
+.stRadio > label {{
+    font-size: 0.53rem !important;
     font-weight: 600 !important;
     color: #9ca3af !important;
     text-transform: uppercase !important;
     letter-spacing: 0.09em !important;
-}
-.stRadio [data-testid="stMarkdownContainer"] p {
-    font-size: 0.85rem !important;
+}}
+.stRadio [data-testid="stMarkdownContainer"] p {{
+    font-size: 0.65rem !important;
     font-weight: 500 !important;
     color: #374151 !important;
-}
-div[role="radiogroup"] { gap: 0.2rem !important; }
+}}
+div[role="radiogroup"] {{ gap: 0.15rem !important; }}
 
-/* ── Selectbox (main area) ── */
-.stSelectbox div[data-baseweb="select"] > div {
+/* ── Selectbox ── */
+.stSelectbox div[data-baseweb="select"] > div {{
     background: #f9fafb !important;
     border-color: #e5e7eb !important;
     border-radius: 8px !important;
-    font-size: 0.875rem !important;
+    font-size: 0.66rem !important;
     color: #111827 !important;
-}
-.stSelectbox > label {
-    font-size: 0.68rem !important;
+}}
+.stSelectbox > label {{
+    font-size: 0.53rem !important;
     font-weight: 600 !important;
     color: #9ca3af !important;
     text-transform: uppercase !important;
     letter-spacing: 0.09em !important;
-}
+}}
 
 /* ── Empty state ── */
-.empty-state {
+.empty-state {{
     text-align: center;
-    padding: 3.5rem 2rem;
+    padding: 3rem 1.5rem;
     background: white;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid #e5e7eb;
-}
-.empty-icon { margin: 0 auto 1rem; display: flex; justify-content: center; }
-.empty-title { font-size: 1rem; font-weight: 700; color: #374151; }
-.empty-sub { font-size: 0.85rem; color: #9ca3af; margin-top: 0.4rem; line-height: 1.6; }
+}}
+.empty-icon {{ margin: 0 auto 0.75rem; display: flex; justify-content: center; }}
+.empty-title {{ font-size: 0.76rem; font-weight: 700; color: #374151; }}
+.empty-sub {{ font-size: 0.65rem; color: #9ca3af; margin-top: 0.35rem; line-height: 1.5; }}
 
 /* ── Badges ── */
-.badge {
+.badge {{
     display: inline-flex;
     align-items: center;
-    padding: 0.15rem 0.55rem;
+    padding: 0.12rem 0.5rem;
     border-radius: 9999px;
-    font-size: 0.7rem;
+    font-size: 0.54rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     white-space: nowrap;
-}
-.badge-red    { background: #fee2e2; color: #b91c1c; }
-.badge-orange { background: #fff7ed; color: #c2410c; }
-.badge-yellow { background: #fef9c3; color: #854d0e; }
-.badge-green  { background: #f0fdf4; color: #166534; }
-.badge-gray   { background: #f3f4f6; color: #6b7280; }
-.badge-blue   { background: #eff6ff; color: #1d4ed8; }
+}}
+.badge-red    {{ background: #fee2e2; color: #b91c1c; }}
+.badge-orange {{ background: #fff7ed; color: #c2410c; }}
+.badge-yellow {{ background: #fef9c3; color: #854d0e; }}
+.badge-green  {{ background: #f0fdf4; color: #166534; }}
+.badge-gray   {{ background: #f3f4f6; color: #6b7280; }}
+.badge-blue   {{ background: #eff6ff; color: #1d4ed8; }}
 
 /* ── Risk table ── */
-.risk-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-.risk-table th {
+.risk-table {{ width: 100%; border-collapse: collapse; font-size: 0.65rem; }}
+.risk-table th {{
     text-align: left;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.68rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.53rem;
     font-weight: 600;
     color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.07em;
     border-bottom: 1px solid #f1f5f9;
-}
-.risk-table td {
-    padding: 0.55rem 0.75rem;
+}}
+.risk-table td {{
+    padding: 0.5rem 0.65rem;
     border-bottom: 1px solid #f9fafb;
     color: #374151;
     vertical-align: middle;
-}
-.risk-table tr:last-child td { border-bottom: none; }
-.risk-table tr:hover td { background: #f9fafb; }
+}}
+.risk-table tr:last-child td {{ border-bottom: none; }}
+.risk-table tr:hover td {{ background: #f9fafb; }}
 
-/* ── Selectbox dropdown – widen + horizontal scroll for long product names ── */
-/* Target only the menu inside popovers, NOT the datepicker calendar popover */
-[data-baseweb="menu"] {
+/* ── Selectbox dropdown ── */
+[data-baseweb="menu"] {{
     min-width: min(720px, 90vw) !important;
     overflow-x: auto !important;
-}
-[data-baseweb="menu"] [role="option"] {
+}}
+[data-baseweb="menu"] [role="option"] {{
     white-space: nowrap !important;
-}
+}}
 
-/* ── Main area primary button (Betöltés) – blue, compact ── */
-.main div.stButton > button[kind="primary"] {
-    background: #2563eb !important;
-    border-color: #2563eb !important;
+/* ── Main area primary button ── */
+.main div.stButton > button[kind="primary"] {{
+    background: #e74c3c !important;
+    border-color: #e74c3c !important;
     color: white !important;
-    padding: 0.28rem 0.9rem !important;
-    font-size: 0.78rem !important;
+    padding: 0.25rem 0.8rem !important;
+    font-size: 0.6rem !important;
     font-weight: 600 !important;
     line-height: 1.3 !important;
     min-height: 0 !important;
     border-radius: 8px !important;
-    box-shadow: 0 1px 3px rgba(37,99,235,0.25) !important;
-}
-.main div.stButton > button[kind="primary"]:hover {
-    background: #1d4ed8 !important;
-    border-color: #1d4ed8 !important;
-}
+    box-shadow: 0 1px 3px rgba(231,76,60,0.25) !important;
+}}
+.main div.stButton > button[kind="primary"]:hover {{
+    background: #c0392b !important;
+    border-color: #c0392b !important;
+}}
 
 /* ── Misc ── */
-.hline { height: 1px; background: #f1f5f9; margin: 1.25rem 0; }
-.stDownloadButton > button {
+.hline {{ height: 1px; background: #f1f5f9; margin: 1rem 0; }}
+.stDownloadButton > button {{
     background: #f9fafb !important;
     border: 1px solid #e5e7eb !important;
     color: #374151 !important;
     border-radius: 8px !important;
-    font-size: 0.85rem !important;
+    font-size: 0.65rem !important;
     font-weight: 500 !important;
-}
-.stDownloadButton > button:hover {
+}}
+.stDownloadButton > button:hover {{
     background: #f3f4f6 !important;
     border-color: #d1d5db !important;
-}
+}}
 
 /* ── Info banner ── */
-.info-banner {
+.info-banner {{
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.75rem 1rem;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    gap: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(231,76,60,0.06);
+    border: 1px solid rgba(231,76,60,0.15);
     border-radius: 8px;
-    font-size: 0.84rem;
-    color: #1d4ed8;
-    margin-bottom: 1rem;
-}
+    font-size: 0.65rem;
+    color: #e74c3c;
+    margin-bottom: 0.85rem;
+}}
 
-/* ── Professional loading overlay ── */
-@keyframes spinRing {
-    0%   { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-@keyframes dashGrow {
-    0%   { stroke-dasharray: 1 150; stroke-dashoffset: 0; }
-    50%  { stroke-dasharray: 90 150; stroke-dashoffset: -35; }
-    100% { stroke-dasharray: 90 150; stroke-dashoffset: -125; }
-}
-.load-overlay {
+/* ── Loading overlay ── */
+@keyframes spinRing {{
+    0%   {{ transform: rotate(0deg); }}
+    100% {{ transform: rotate(360deg); }}
+}}
+@keyframes dashGrow {{
+    0%   {{ stroke-dasharray: 1 150; stroke-dashoffset: 0; }}
+    50%  {{ stroke-dasharray: 90 150; stroke-dashoffset: -35; }}
+    100% {{ stroke-dasharray: 90 150; stroke-dashoffset: -125; }}
+}}
+.load-overlay {{
     position: fixed;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
@@ -458,84 +449,90 @@ div[role="radiogroup"] { gap: 0.2rem !important; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
-}
-.load-spinner-wrap {
+    gap: 0.85rem;
+}}
+.load-spinner-wrap {{
     position: relative;
-    width: 68px;
-    height: 68px;
-}
-.load-ring-svg  { animation: spinRing 2s linear infinite; }
-.load-ring-arc  { animation: dashGrow 1.5s ease-in-out infinite; }
-.load-icon-center {
+    width: 60px;
+    height: 60px;
+}}
+.load-ring-svg  {{ animation: spinRing 2s linear infinite; }}
+.load-ring-arc  {{ animation: dashGrow 1.5s ease-in-out infinite; }}
+.load-icon-center {{
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 1.6rem;
+    font-size: 1.2rem;
     line-height: 1;
-}
-.load-title {
-    font-size: 0.95rem;
+}}
+.load-title {{
+    font-size: 0.72rem;
     font-weight: 600;
-    color: #1e40af;
+    color: #e74c3c;
     text-align: center;
     letter-spacing: -0.01em;
-}
-.load-warn {
-    font-size: 0.82rem;
+}}
+.load-warn {{
+    font-size: 0.63rem;
     color: #374151;
     text-align: center;
-    max-width: 380px;
-    line-height: 1.6;
-    padding: 0.65rem 1.1rem;
+    max-width: 340px;
+    line-height: 1.5;
+    padding: 0.55rem 0.9rem;
     background: #f8fafc;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-}
+}}
+
 /* ── Top header bar ── */
-.top-header {
+.top-header {{
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 0.5rem;
-}
-.greeting-text {
-    font-size: 1.5rem;
+    margin-bottom: 0.35rem;
+}}
+.greeting-text {{
+    font-size: 0.97rem;
     font-weight: 800;
     color: #111827;
     letter-spacing: -0.03em;
-}
-.greeting-sub {
-    font-size: 0.875rem;
+}}
+.greeting-sub {{
+    font-size: 0.63rem;
     color: #6b7280;
-    margin-top: 0.15rem;
-}
-.header-date {
-    font-size: 0.85rem;
+    margin-top: 0.1rem;
+}}
+.header-date {{
+    font-size: 0.65rem;
     color: #6b7280;
     font-weight: 500;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    padding-top: 0.5rem;
-}
+    gap: 0.35rem;
+    padding-top: 0.35rem;
+}}
 
-/* ── Main area date inputs – compact ── */
-.main .stDateInput input {
+/* ── Main area date inputs ── */
+.main .stDateInput input {{
     background: #ffffff !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 8px !important;
-    font-size: 0.82rem !important;
+    font-size: 0.63rem !important;
     color: #111827 !important;
-    padding: 0.3rem 0.6rem !important;
-}
-.main .stDateInput label {
-    font-size: 0.68rem !important;
+    padding: 0.25rem 0.5rem !important;
+}}
+.main .stDateInput label {{
+    font-size: 0.53rem !important;
     font-weight: 600 !important;
     color: #9ca3af !important;
     text-transform: uppercase !important;
     letter-spacing: 0.09em !important;
-}
+}}
+
+/* ── Dataframe ── */
+[data-testid="stDataFrame"] {{
+    font-size: 0.65rem !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -554,8 +551,8 @@ METRIC_CFG = {
 }
 
 C = {
-    "blue":   "#2563eb",   # primary accent (was teal)
-    "teal":   "#2563eb",   # alias kept for chart references
+    "blue":   "#2563eb",
+    "teal":   "#2563eb",
     "indigo": "#4f46e5",
     "green":  "#10b981",
     "red":    "#ef4444",
@@ -563,6 +560,7 @@ C = {
     "purple": "#8b5cf6",
     "slate":  "#64748b",
     "coral":  "#e74c3c",
+    "charcoal": "#1c1c2e",
     "sidebar_bg": "#1c1c2e",
     "sidebar_text": "#a0a3b1",
     "sidebar_active_bg": "rgba(231,76,60,0.15)",
@@ -583,9 +581,9 @@ def funny_loader(label: str = "Adatok betöltése...", warn: str = ""):
         f'    <svg class="load-ring-svg" width="68" height="68" viewBox="0 0 68 68"'
         f'         xmlns="http://www.w3.org/2000/svg">'
         f'      <circle cx="34" cy="34" r="28" fill="none"'
-        f'              stroke="#dbeafe" stroke-width="5"/>'
+        f'              stroke="rgba(231,76,60,0.15)" stroke-width="5"/>'
         f'      <circle class="load-ring-arc" cx="34" cy="34" r="28" fill="none"'
-        f'              stroke="#2563eb" stroke-width="5" stroke-linecap="round"'
+        f'              stroke="#e74c3c" stroke-width="5" stroke-linecap="round"'
         f'              stroke-dasharray="1 175" stroke-dashoffset="0"/>'
         f'    </svg>'
         f'    <div class="load-icon-center">{icon}</div>'
@@ -697,7 +695,7 @@ def kpi_grid(*cards, cols: int = 4) -> None:
 def section_header(title: str, sub: str = "", icon_name: str = "") -> None:
     icon_html = (
         f'<span style="display:inline-flex;align-items:center;">'
-        f'{svg(icon_name, 15, "#2563eb")}</span>'
+        f'{svg(icon_name, 15, "#e74c3c")}</span>'
         if icon_name else ""
     )
     sub_html = f'<div class="section-sub">{sub}</div>' if sub else ""
@@ -728,7 +726,7 @@ def empty_state(icon_name: str, title: str, sub: str) -> None:
 
 def info_banner(text: str, icon_name: str = "info") -> None:
     st.markdown(
-        f'<div class="info-banner">{svg(icon_name, 15, "#2563eb")}{text}</div>',
+        f'<div class="info-banner">{svg(icon_name, 15, "#e74c3c")}{text}</div>',
         unsafe_allow_html=True,
     )
 
@@ -737,16 +735,16 @@ def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
     fig.update_layout(
         title=dict(text=title, font=dict(size=13, color="#374151", family="Inter"), x=0) if title else dict(text=""),
         paper_bgcolor="white",
-        plot_bgcolor="#f9fafb",
+        plot_bgcolor="#fafafa",
         height=height,
         margin=dict(l=0, r=0, t=40 if title else 10, b=0),
-        font=dict(color="#374151", size=12, family="Inter"),
+        font=dict(color="#374151", size=11, family="Inter"),
         xaxis=dict(
-            gridcolor="#f1f5f9", linecolor="#e5e7eb",
+            gridcolor="#f0f0f0", linecolor="#e5e7eb",
             tickfont=dict(color="#9ca3af", size=11), tickangle=-30,
         ),
         yaxis=dict(
-            gridcolor="#f1f5f9", linecolor="#e5e7eb",
+            gridcolor="#f0f0f0", linecolor="#e5e7eb",
             tickfont=dict(color="#9ca3af", size=11), zeroline=False,
         ),
         showlegend=True,
@@ -829,78 +827,100 @@ def _load_warn(start, end) -> str:
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
+# PulseERP-style nav row: icon + label + optional chevron
+_NAV_ACTIVE_STYLE = (
+    "display:flex;align-items:center;gap:0.6rem;"
+    "padding:0.4rem 0.65rem;border-radius:0.5rem;"
+    "font-size:0.66rem;font-weight:500;font-family:'DM Sans',sans-serif;"
+    "background:#e07a5f;color:#f9f7f4;"
+    "box-shadow:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1);"
+    "height:2.1rem;box-sizing:border-box;"
+)
+_NAV_INACTIVE_STYLE = (
+    "display:flex;align-items:center;gap:0.6rem;"
+    "padding:0.4rem 0.65rem;border-radius:0.5rem;"
+    "font-size:0.66rem;font-weight:500;font-family:'DM Sans',sans-serif;"
+    "background:transparent;color:rgba(224,217,209,0.6);"
+    "height:2.1rem;box-sizing:border-box;"
+)
+
+
 def render_sidebar():
     with st.sidebar:
-        # ── Brand header ──────────────────────────────────────────────────────
-        st.markdown("""
-        <div style="padding:1rem 1rem 0.75rem;margin-top:0;">
-            <div style="display:flex;align-items:center;gap:0.55rem;">
-                <div style="width:28px;height:28px;background:#e74c3c;border-radius:7px;
-                            display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'
-                         fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'>
-                        <polyline points='23 6 13.5 15.5 8.5 10.5 1 18'/>
-                        <polyline points='17 6 23 6 23 12'/>
-                    </svg>
-                </div>
-                <div>
-                    <div style="font-size:0.88rem;font-weight:800;color:#ffffff;letter-spacing:-0.02em;line-height:1.2;">SamanSport</div>
-                    <div style="font-size:0.55rem;color:#6b7085;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">ERP Analytics</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── Navigation label ──────────────────────────────────────────────────
+        # ── Brand header ──────────────────────────────────────────────────
         st.markdown(
-            '<div style="padding:0.5rem 1rem 0.15rem;font-size:0.68rem;font-weight:700;'
-            'color:#6b7085;text-transform:uppercase;letter-spacing:0.11em;">Navigáció</div>',
+            '<div style="padding:1.5rem 1.5rem 1rem;">'
+            '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:1.02rem;'
+            'font-weight:700;color:#e0d9d1;letter-spacing:-0.025em;line-height:1.2;">'
+            '<span style="color:#e07a5f;">&#9632;</span> '
+            'Saman<span style="color:rgba(224,217,209,0.6);">Sport</span></div>'
+            '<div style="font-family:\'DM Sans\',sans-serif;font-size:0.63rem;'
+            'color:rgba(224,217,209,0.4);margin-top:0.25rem;">ERP Analytics</div>'
+            '</div>',
             unsafe_allow_html=True,
         )
 
-        pages = [
-            ("dashboard", "grid",      "Dashboard"),
-            ("analytics", "bar-chart", "Analitika"),
+        # ── Navigation items (PulseERP style) ─────────────────────────────
+        _pages = [
+            ("dashboard", "layout-dashboard", "Dashboard"),
+            ("analytics", "chart-column",     "Analitika"),
         ]
-        for page_id, icon_name, label in pages:
+        for page_id, icon_name, label in _pages:
             is_active = st.session_state.page == page_id
+            style = _NAV_ACTIVE_STYLE if is_active else _NAV_INACTIVE_STYLE
+            icon_c = "#f9f7f4" if is_active else "rgba(224,217,209,0.6)"
+            # Chevron on right for active item
+            chevron = (
+                f'<span style="margin-left:auto;opacity:0.7;">'
+                f'{svg("chevron-right", 16, "#f9f7f4")}</span>'
+                if is_active else ""
+            )
+            # Render the visual HTML nav row (wrapped with horizontal padding)
+            st.markdown(
+                f'<div style="padding:0 0.75rem;">'
+                f'<div style="{style}">'
+                f'{svg(icon_name, 18, icon_c)}'
+                f'<span>{label}</span>'
+                f'{chevron}'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+            # Invisible clickable button overlaid via CSS margin-top: -2.55rem
             if st.button(
-                f"  {label}", key=f"nav_{page_id}",
+                label, key=f"nav_{page_id}",
                 type="primary" if is_active else "secondary",
                 use_container_width=True,
             ):
                 st.session_state.page = page_id
                 st.rerun()
 
-        # ── Spacer to push Settings + Profile to bottom ──────────────────────
-        st.markdown('<div style="flex:1;min-height:40vh;"></div>', unsafe_allow_html=True)
-
-        # ── Divider ──────────────────────────────────────────────────────────
+        # ── Bottom: Settings + User profile (fixed to bottom) ─────────────
         st.markdown(
-            '<div style="height:1px;background:rgba(255,255,255,0.06);margin:0.5rem 0.75rem;"></div>',
-            unsafe_allow_html=True,
-        )
-
-        # ── Settings ─────────────────────────────────────────────────────────
-        if st.button("  Beállítások", key="nav_settings", type="secondary",
-                     use_container_width=True):
-            pass  # placeholder for future settings page
-
-        # ── User profile ─────────────────────────────────────────────────────
-        st.markdown(
-            '<div style="padding:0.75rem 1rem;display:flex;align-items:center;gap:0.6rem;'
-            'border-top:1px solid rgba(255,255,255,0.06);margin-top:0.5rem;">'
-            '<div style="width:32px;height:32px;border-radius:50%;background:#e74c3c;'
+            '<div style="position:fixed;bottom:0;width:15rem;'
+            'background:#221e1b;padding:0 0.75rem 1rem;z-index:20;">'
+            # Settings row (same style as inactive nav)
+            f'<div style="{_NAV_INACTIVE_STYLE}cursor:pointer;">'
+            f'{svg("settings", 18, "rgba(224,217,209,0.6)")}'
+            '<span>Beállítások</span>'
+            '</div>'
+            # User profile
+            '<div style="display:flex;align-items:center;gap:0.75rem;'
+            'padding:0.75rem 0.75rem 0.25rem;border-top:1px solid #37322f;'
+            'margin-top:0.75rem;">'
+            '<div style="width:32px;height:32px;border-radius:50%;'
+            'background:rgba(224,122,95,0.2);'
             'display:flex;align-items:center;justify-content:center;'
-            'color:white;font-size:0.7rem;font-weight:700;flex-shrink:0;">SS</div>'
-            '<div style="flex:1;min-width:0;">'
-            '<div style="font-size:0.78rem;font-weight:600;color:#e2e4ea;line-height:1.2;">SamanSport</div>'
-            '<div style="font-size:0.6rem;color:#6b7085;">Admin</div>'
+            'color:#e07a5f;font-size:0.54rem;font-weight:700;'
+            'font-family:\'Space Grotesk\',sans-serif;flex-shrink:0;">SS</div>'
+            '<div style="min-width:0;">'
+            '<div style="font-size:0.63rem;font-weight:500;color:#e0d9d1;'
+            'line-height:1.2;white-space:nowrap;overflow:hidden;'
+            'text-overflow:ellipsis;">SamanSport</div>'
+            '<div style="font-size:0.53rem;color:rgba(224,217,209,0.4);">Admin</div>'
             '</div>'
-            '<div style="cursor:pointer;opacity:0.5;">'
-            + svg("log-out", 14, "#a0a3b1") +
-            '</div>'
-            '</div>',
+            '<div style="margin-left:auto;flex-shrink:0;cursor:pointer;color:rgba(224,217,209,0.4);">'
+            + svg("log-out", 16, "rgba(224,217,209,0.4)") +
+            '</div></div></div>',
             unsafe_allow_html=True,
         )
 
@@ -974,16 +994,16 @@ def render_dashboard():
     # ── KPI row ────────────────────────────────────────────────────────────────
     kpi_grid(
         kpi_card("Bruttó forgalom", f"{df['Bruttó érték'].sum():,.0f} HUF",
-                 "dollar-sign", "#eff6ff", "#2563eb",
+                 "dollar-sign", "rgba(231,76,60,0.1)", "#e74c3c",
                  sub=f"{df['kelt'].dt.to_period('M').nunique()} aktív hónap"),
         kpi_card("Értékesített mennyiség", f"{df['Mennyiség'].sum():,.0f} db",
                  "package", "#fef9c3", "#d97706",
                  sub=f"Nettó: {df['Nettó érték'].sum():,.0f} HUF"),
         kpi_card("Átlagos bruttó ár", f"{df['Bruttó ár'].mean():,.0f} HUF",
-                 "tag", "#faf5ff", "#7c3aed",
+                 "tag", "#f3f4f6", "#1c1c2e",
                  sub=f"Átl. nettó: {df['Nettó ár'].mean():,.0f} HUF"),
         kpi_card("Tranzakciók", f"{len(df):,}",
-                 "receipt", "#fff1f2", "#e11d48",
+                 "receipt", "rgba(231,76,60,0.06)", "#e74c3c",
                  sub=f"{df['kelt'].dt.year.nunique()} aktív év"),
     )
 
@@ -1010,8 +1030,8 @@ def render_dashboard():
     fig.add_trace(go.Scatter(
         x=monthly["Periódus"], y=monthly["Bruttó érték"],
         mode="lines", name="Bruttó forgalom",
-        line=dict(color=C["blue"], width=2.5),
-        fill="tozeroy", fillcolor="rgba(37,99,235,0.08)",
+        line=dict(color=C["coral"], width=2.5),
+        fill="tozeroy", fillcolor="rgba(231,76,60,0.08)",
         hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
     ))
     chart_style(fig, height=260)
@@ -1021,7 +1041,7 @@ def render_dashboard():
     mq = df2.groupby("Periódus")["Mennyiség"].sum().reset_index().sort_values("Periódus")
     fig_q = go.Figure(go.Bar(
         x=mq["Periódus"], y=mq["Mennyiség"],
-        marker=dict(color=C["indigo"], opacity=0.8),
+        marker=dict(color="#2d2d42", opacity=0.8),
         hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
     ))
     chart_style(fig_q, height=230)
@@ -1062,7 +1082,7 @@ def render_dashboard():
         max_val = grp["Forgalom"].max()
         fig = go.Figure(go.Bar(
             x=grp["Forgalom"], y=grp["Label"].tolist(), orientation="h",
-            marker=dict(color=C["blue"], opacity=0.85),
+            marker=dict(color=C["coral"], opacity=0.85),
             text=grp.apply(lambda r: f"  {r['Forgalom']:,.0f} Ft  ({r['Pct']:.1f}%)", axis=1),
             textposition="outside",
             textfont=dict(size=11, color="#374151"),
@@ -1159,7 +1179,7 @@ def _analytics_sales():
         _sku_code = sel_sku
         _sku_name = sel_label.split("  –  ", 1)[1] if "  –  " in sel_label else sel_label
         st.markdown(
-            f'<div style="padding:0.5rem 0 0.25rem;color:#374151;font-size:0.92rem;">'
+            f'<div style="padding:0.5rem 0 0.25rem;color:#374151;font-size:0.78rem;">'
             f'<b>Cikkszám:</b> {_sku_code} &nbsp;&middot;&nbsp; '
             f'<b>Terméknév:</b> {_sku_name}</div>',
             unsafe_allow_html=True,
@@ -1214,15 +1234,15 @@ def _analytics_sales():
     if chart_type == "Oszlop":
         fig.add_trace(go.Bar(
             x=grouped["Periódus"], y=grouped[col_name],
-            marker_color=C["blue"], name=metric, hovertemplate=ht,
+            marker_color=C["coral"], name=metric, hovertemplate=ht,
         ))
     else:
         fig.add_trace(go.Scatter(
             x=grouped["Periódus"], y=grouped[col_name],
             mode="lines+markers", name=metric,
-            line=dict(color=C["blue"], width=2.5),
-            marker=dict(size=6, color=C["blue"]),
-            fill="tozeroy", fillcolor="rgba(37,99,235,0.07)",
+            line=dict(color=C["coral"], width=2.5),
+            marker=dict(size=6, color=C["coral"]),
+            fill="tozeroy", fillcolor="rgba(231,76,60,0.07)",
             hovertemplate=ht,
         ))
     fig.update_layout(yaxis_title=ytitle)
@@ -1304,17 +1324,17 @@ def _analytics_movements():
     )
     fig = go.Figure()
     if chart_m == "Oszlop":
-        fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["blue"],
+        fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["coral"],
                              hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
-        fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color=C["orange"],
+        fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color="#2d2d42",
                              hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
         fig.update_layout(barmode="group")
     else:
         fig.add_trace(go.Scatter(x=all_p, y=be_v, name="Beérkező",
-                                 mode="lines+markers", line=dict(color=C["blue"], width=2.5),
+                                 mode="lines+markers", line=dict(color=C["coral"], width=2.5),
                                  marker=dict(size=6)))
         fig.add_trace(go.Scatter(x=all_p, y=ki_v, name="Kiadó",
-                                 mode="lines+markers", line=dict(color=C["orange"], width=2.5),
+                                 mode="lines+markers", line=dict(color="#2d2d42", width=2.5),
                                  marker=dict(size=6)))
     chart_style(fig, height=380)
 
