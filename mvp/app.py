@@ -529,6 +529,35 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     letter-spacing: 0.09em !important;
 }}
 
+/* ── Refresh icon button (no background, matches date input height) ── */
+.refresh-icon-spacer {{
+    height: 1.6rem;
+}}
+.main div.stButton:has(button[key="force_refresh_btn"]) > button,
+.main div.stButton:has(button[key="force_refresh_btn"]) > button:focus,
+.main div.stButton:has(button[key="force_refresh_btn"]) > button:active {{
+    background: none !important;
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    min-height: 0 !important;
+    height: auto !important;
+    width: auto !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    color: #9ca3af !important;
+    cursor: pointer !important;
+    border-radius: 6px !important;
+    transition: color 0.15s !important;
+}}
+.main div.stButton:has(button[key="force_refresh_btn"]) > button:hover {{
+    color: #e74c3c !important;
+    background: none !important;
+    background-color: transparent !important;
+}}
+
 /* ── Dataframe ── */
 [data-testid="stDataFrame"] {{
     font-size: 0.65rem !important;
@@ -956,7 +985,7 @@ def render_header():
     )
 
     _default_start = _today.replace(year=_today.year - 1)
-    dc1, dc2, dc3 = st.columns([2, 2, 1])
+    dc1, dc2, dc3 = st.columns([5, 5, 1])
     with dc1:
         start_date = st.date_input(
             "Kezdő dátum", key="start_date",
@@ -968,10 +997,10 @@ def render_header():
             value=_today, max_value=_today,
         )
     with dc3:
-        st.markdown('<div style="height:1.6rem;"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="refresh-icon-spacer"></div>', unsafe_allow_html=True)
         refresh_clicked = st.button(
-            "🔄  Frissítés", key="force_refresh_btn",
-            use_container_width=True, type="secondary",
+            "⟳", key="force_refresh_btn",
+            help="Frissítés",
         )
 
     return start_date, end_date, refresh_clicked
@@ -1265,6 +1294,20 @@ def _analytics_sales():
     )
     full = df.copy()
     full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
+    # Add Terméknév from product master or existing name column
+    _sc_full = find_sku_col(full)
+    _nc_full = find_name_col(full)
+    if _nc_full:
+        full = full.rename(columns={_nc_full: "Terméknév"})
+    elif _sc_full:
+        _pm = load_product_master()
+        if not _pm.empty:
+            _name_map = _pm.set_index("Cikkszám")["Cikknév"]
+            full.insert(
+                full.columns.get_loc(_sc_full) + 1,
+                "Terméknév",
+                full[_sc_full].map(_name_map).fillna(""),
+            )
     st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
     fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
     csv_bytes = full.to_csv(index=False).encode("utf-8-sig")
