@@ -3,5 +3,13 @@
     "superpowers@claude-plugins-official": true,
     "github@claude-plugins-official": true,
     "playwright@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf venv)",
+      "Bash(/opt/homebrew/bin/python3.12 -m venv venv)",
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install:*)"
+    ]
   }
 }

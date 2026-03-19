@@ -646,12 +646,15 @@ def load_product_master() -> pd.DataFrame:
     )
 
 # ── Session state ──────────────────────────────────────────────────────────────
+_init_today = datetime.now().date()
 for _k, _v in [
     ("page",              "dashboard"),
     ("sales_df",          None),
     ("mozgas_df",         None),
     ("last_query",        {}),
     ("last_mozgas_query", {}),
+    ("start_date",        _init_today.replace(year=_init_today.year - 1)),
+    ("end_date",          _init_today),
 ]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
@@ -984,17 +987,16 @@ def render_header():
         unsafe_allow_html=True,
     )
 
-    _default_start = _today.replace(year=_today.year - 1)
     dc1, dc2, dc3 = st.columns([5, 5, 1])
     with dc1:
         start_date = st.date_input(
             "Kezdő dátum", key="start_date",
-            value=_default_start, max_value=_today,
+            max_value=_today,
         )
     with dc2:
         end_date = st.date_input(
             "Záró dátum", key="end_date",
-            value=_today, max_value=_today,
+            max_value=_today,
         )
     with dc3:
         st.markdown('<div class="refresh-icon-spacer"></div>', unsafe_allow_html=True)
