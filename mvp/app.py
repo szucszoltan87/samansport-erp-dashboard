@@ -11,7 +11,7 @@ from config import ALL_PRODUCTS_LABEL
 from styles import inject_css
 from layout import render_sidebar, render_header
 from helpers import (
-    find_sku_col, find_name_col, load_product_master,
+    find_sku_col, find_name_col, load_product_master, build_product_opts,
     fetch_sales, funny_loader, load_warn,
 )
 from pages.dashboard import render_dashboard
@@ -85,24 +85,7 @@ def main():
             }
             st.session_state.mozgas_df = None
             st.session_state.last_mozgas_query = {}
-            _sc = find_sku_col(_df)
-            _nc = find_name_col(_df)
-            if _sc:
-                _prows = (
-                    _df[[_sc] + ([_nc] if _nc else [])]
-                    .drop_duplicates(subset=[_sc])
-                    .dropna(subset=[_sc])
-                    .sort_values(_nc if _nc else _sc)
-                )
-                _cache: dict = {ALL_PRODUCTS_LABEL: None}
-                for _, _r in _prows.iterrows():
-                    _lbl = (
-                        f"{_r[_sc]}  –  {_r[_nc]}"
-                        if _nc and pd.notna(_r.get(_nc))
-                        else str(_r[_sc])
-                    )
-                    _cache[_lbl] = _r[_sc]
-                st.session_state["_prod_opts_cache"] = _cache
+            st.session_state["_prod_opts_cache"] = build_product_opts(_df)
 
     # ── Page routing ──────────────────────────────────────────────────────
     page = st.session_state.page
