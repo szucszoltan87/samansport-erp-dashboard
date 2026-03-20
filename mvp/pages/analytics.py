@@ -14,7 +14,7 @@ from charts import metric_chart, movements_chart
 from helpers import (
     period_key, find_sku_col, find_name_col, load_product_master,
     build_product_opts, section_header, empty_state, funny_loader,
-    fetch_movements, load_warn,
+    fetch_sales, fetch_movements, load_warn,
 )
 
 _PAGE_SIZE = 1000
@@ -82,15 +82,34 @@ def _analytics_sales():
             unsafe_allow_html=True,
         )
 
-    # ── Guard: nothing loaded yet ─────────────────────────────────────────────
+    # ── Guard: nothing loaded yet — offer on-demand load ─────────────────────
     df   = st.session_state.sales_df
     meta = st.session_state.last_query or {}
     if df is None or (isinstance(df, pd.DataFrame) and df.empty):
-        empty_state(
-            "bar-chart",
-            "Nincs betöltött adat",
-            "Az adatok automatikusan betöltődnek, vagy kattintson az <b>Adatok frissítése</b> gombra az oldalsávban.",
-        )
+        _today = datetime.now().date()
+        _an_start = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
+        _an_end   = st.session_state.get("end_date", _today)
+        if st.button("Értékesítési adatok betöltése", key="load_sales_an", type="primary"):
+            warn = load_warn(_an_start, _an_end)
+            with funny_loader("Értékesítési adatok betöltése...", warn):
+                _an_df = fetch_sales(None, _an_start, _an_end)
+            if _an_df is not None:
+                st.session_state.sales_df = _an_df
+                st.session_state.last_query = {
+                    "cikkszam": None,
+                    "label": ALL_PRODUCTS_LABEL,
+                    "start": _an_start,
+                    "end": _an_end,
+                }
+                st.session_state["_prod_opts_cache"] = build_product_opts(_an_df)
+                st.rerun()
+        else:
+            empty_state(
+                "bar-chart",
+                "Nincs betöltött adat",
+                "Kattintson az <b>Értékesítési adatok betöltése</b> gombra, "
+                "vagy váltson a <b>Dashboard</b> oldalra az automatikus betöltéshez.",
+            )
         return
 
     # ── Filter by selected product from the top selectbox ─────────────────────

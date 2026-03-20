@@ -48,47 +48,48 @@ def main():
     render_sidebar()
     start_date, end_date, refresh_clicked = render_header()
 
-    # ── Handle refresh click ──────────────────────────────────────────────
-    if refresh_clicked:
-        with st.spinner("Friss adatok letöltése az API-ból..."):
-            _r_df = fetch_sales(None, start_date, end_date, force_refresh=True)
-        if _r_df is not None:
-            st.session_state.sales_df = _r_df
-            st.session_state.last_query = {
-                "cikkszam": None,
-                "label":    ALL_PRODUCTS_LABEL,
-                "start":    start_date,
-                "end":      end_date,
-            }
-            st.session_state.mozgas_df = None
-            st.session_state.last_mozgas_query = {}
-            st.rerun()
+    page = st.session_state.page
 
-    # ── Auto-load / reload when sidebar dates change ─────────────────────
-    _last      = st.session_state.last_query or {}
-    _need_load = (
-        st.session_state.sales_df is None
-        or _last.get("start") != start_date
-        or _last.get("end") != end_date
-    )
+    # ── Dashboard: auto-load sales data; Analytics loads independently ────
+    if page == "dashboard":
+        if refresh_clicked:
+            with st.spinner("Friss adatok letöltése az API-ból..."):
+                _r_df = fetch_sales(None, start_date, end_date, force_refresh=True)
+            if _r_df is not None:
+                st.session_state.sales_df = _r_df
+                st.session_state.last_query = {
+                    "cikkszam": None,
+                    "label":    ALL_PRODUCTS_LABEL,
+                    "start":    start_date,
+                    "end":      end_date,
+                }
+                st.session_state.mozgas_df = None
+                st.session_state.last_mozgas_query = {}
+                st.rerun()
 
-    if _need_load:
-        with funny_loader("Dashboard adatok betöltése...", load_warn(start_date, end_date)):
-            _df = fetch_sales(None, start_date, end_date)
-        if _df is not None:
-            st.session_state.sales_df   = _df
-            st.session_state.last_query = {
-                "cikkszam": None,
-                "label":    ALL_PRODUCTS_LABEL,
-                "start":    start_date,
-                "end":      end_date,
-            }
-            st.session_state.mozgas_df = None
-            st.session_state.last_mozgas_query = {}
-            st.session_state["_prod_opts_cache"] = build_product_opts(_df)
+        _last      = st.session_state.last_query or {}
+        _need_load = (
+            st.session_state.sales_df is None
+            or _last.get("start") != start_date
+            or _last.get("end") != end_date
+        )
+
+        if _need_load:
+            with funny_loader("Dashboard adatok betöltése...", load_warn(start_date, end_date)):
+                _df = fetch_sales(None, start_date, end_date)
+            if _df is not None:
+                st.session_state.sales_df   = _df
+                st.session_state.last_query = {
+                    "cikkszam": None,
+                    "label":    ALL_PRODUCTS_LABEL,
+                    "start":    start_date,
+                    "end":      end_date,
+                }
+                st.session_state.mozgas_df = None
+                st.session_state.last_mozgas_query = {}
+                st.session_state["_prod_opts_cache"] = build_product_opts(_df)
 
     # ── Page routing ──────────────────────────────────────────────────────
-    page = st.session_state.page
     if page == "dashboard":
         render_dashboard()
     elif page == "analytics":
