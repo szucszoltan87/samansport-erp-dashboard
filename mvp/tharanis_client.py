@@ -8,6 +8,7 @@ Falls back to direct SOAP calls if Supabase is not configured.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import html
@@ -23,6 +24,8 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from supabase import Client as SupabaseClient
@@ -85,6 +88,7 @@ def _is_stale(supabase: SupabaseClient, entity: str, filter_hash: str) -> bool:
         age = (datetime.now(timezone.utc) - last_synced).total_seconds()
         return bool(age > meta["ttl_seconds"])
     except Exception:
+        logger.warning("Freshness check failed for entity '%s', treating as stale", entity, exc_info=True)
         return True
 
 
@@ -93,17 +97,21 @@ def _supabase_select_all(supabase: SupabaseClient, table: str, select: str, filt
     all_rows: list[dict[str, Any]] = []
     page_size: int = 1000
     offset: int = 0
-    while True:
-        query = supabase.table(table).select(select).range(offset, offset + page_size - 1)
-        if filters:
-            for method, args in filters:
-                query = getattr(query, method)(*args)
-        result = query.execute()
-        rows: list[dict[str, Any]] = result.data or []  # type: ignore[assignment]
-        all_rows.extend(rows)
-        if len(rows) < page_size:
-            break
-        offset += page_size
+    try:
+        while True:
+            query = supabase.table(table).select(select).range(offset, offset + page_size - 1)
+            if filters:
+                for method, args in filters:
+                    query = getattr(query, method)(*args)
+            result = query.execute()
+            rows: list[dict[str, Any]] = result.data or []  # type: ignore[assignment]
+            all_rows.extend(rows)
+            if len(rows) < page_size:
+                break
+            offset += page_size
+    except Exception:
+        logger.exception("Supabase paginated read failed for table '%s'", table)
+        raise
     return all_rows
 
 
@@ -118,7 +126,7 @@ def _trigger_sync_background(entity: str, filters: dict[str, str | None]) -> Non
                     invoke_options={"body": {"entity": entity, "filters": filters}}
                 )
         except Exception:
-            pass  # Non-fatal — stale data is still served
+            logger.warning("Background sync trigger failed for '%s'", entity, exc_info=True)
 
     thread = threading.Thread(target=_do_sync, daemon=True)
     thread.start()
@@ -180,6 +188,7 @@ def _supabase_get_sales(start_date: str, end_date: str,
 
         return df
     except Exception:
+        logger.exception("Supabase sales read failed (start=%s, end=%s)", start_date, end_date)
         return None
 
 
@@ -226,6 +235,7 @@ def _supabase_get_inventory(cikkszam: str | None = None) -> pd.DataFrame | None:
 
         return df
     except Exception:
+        logger.exception("Supabase inventory read failed")
         return None
 
 
@@ -278,6 +288,7 @@ def _supabase_get_movements(start_date: str, end_date: str,
 
         return df
     except Exception:
+        logger.exception("Supabase movements read failed (start=%s, end=%s)", start_date, end_date)
         return None
 
 
@@ -363,15 +374,19 @@ def _build_mozgas_leker(start_date: str, end_date: str, cikkszam: str | None,
 
 def _post_soap(entity: str, leker_xml: str) -> str:
     envelope = _build_envelope(entity, leker_xml)
-    r = requests.post(
-        _API_URL,
-        data=envelope.encode("utf-8"),
-        headers=_HEADERS,
-        verify=False,
-        timeout=120,
-    )
-    r.raise_for_status()
-    return r.text
+    try:
+        r = requests.post(
+            _API_URL,
+            data=envelope.encode("utf-8"),
+            headers=_HEADERS,
+            verify=False,
+            timeout=120,
+        )
+        r.raise_for_status()
+        return r.text
+    except requests.RequestException:
+        logger.exception("SOAP request failed for entity '%s'", entity)
+        raise
 
 
 def _extract_valasz(soap_text: str) -> str:
@@ -553,12 +568,16 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
         _save_cache(df, cache_file)
         return df
 
-    except requests.RequestException:
+    except Exception:
+        logger.exception("SOAP sales fetch failed (start=%s, end=%s)", start_date, end_date)
         stale = _load_cache(cache_file)
         if stale is not None:
-            warnings.warn("Tharanis API elérhetetlen, gyorsítótárazott adat használata.")
+            logger.info("Serving stale cached sales data")
             return stale
-        raise
+        return pd.DataFrame(
+            columns=["kelt", "Cikkszám", "Mennyiség",
+                     "Nettó ár", "Bruttó ár", "Nettó érték", "Bruttó érték"]
+        )
 
 
 def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame:
@@ -577,28 +596,33 @@ def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame
             return df
 
     # Fallback: direct SOAP call
-    all_records: list[dict] = []
-    page = 0
-    while True:
-        leker_xml = _build_keszlet_leker(cikkszam, page, limit)
-        raw = _post_soap("keszlet", leker_xml)
-        valasz = _extract_valasz(raw)
-        if not valasz:
-            break
-        page_records = _parse_keszlet(valasz)
-        all_records.extend(page_records)
-        if len(page_records) < limit:
-            break
-        page += 1
+    _empty_inv = pd.DataFrame(
+        columns=["Cikkszám", "Készlet",
+                 "Raktár 1", "Raktár 2", "Raktár 3",
+                 "Raktár 4", "Raktár 5", "Raktár 6"]
+    )
+    try:
+        all_records: list[dict] = []
+        page = 0
+        while True:
+            leker_xml = _build_keszlet_leker(cikkszam, page, limit)
+            raw = _post_soap("keszlet", leker_xml)
+            valasz = _extract_valasz(raw)
+            if not valasz:
+                break
+            page_records = _parse_keszlet(valasz)
+            all_records.extend(page_records)
+            if len(page_records) < limit:
+                break
+            page += 1
 
-    if not all_records:
-        return pd.DataFrame(
-            columns=["Cikkszám", "Készlet",
-                     "Raktár 1", "Raktár 2", "Raktár 3",
-                     "Raktár 4", "Raktár 5", "Raktár 6"]
-        )
+        if not all_records:
+            return _empty_inv
 
-    return pd.DataFrame(all_records)
+        return pd.DataFrame(all_records)
+    except Exception:
+        logger.exception("SOAP inventory fetch failed")
+        return _empty_inv
 
 
 def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = None,
@@ -660,12 +684,31 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
         _save_cache(df, cache_file)
         return df
 
-    except requests.RequestException:
+    except Exception:
+        logger.exception("SOAP movements fetch failed (start=%s, end=%s)", start_date, end_date)
         stale = _load_cache(cache_file)
         if stale is not None:
-            warnings.warn("Tharanis API elérhetetlen, gyorsítótárazott adat használata.")
+            logger.info("Serving stale cached movements data")
             return stale
-        raise
+        return pd.DataFrame(
+            columns=["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]
+        )
+
+
+def check_connection() -> dict[str, Any]:
+    """Test Supabase connectivity. Returns {'ok': bool, 'mode': str, 'detail': str}."""
+    if not _USE_SUPABASE:
+        return {"ok": True, "mode": "SOAP", "detail": "Közvetlen SOAP mód (Supabase nincs konfigurálva)"}
+    try:
+        sb = _get_supabase()
+        if sb is None:
+            return {"ok": False, "mode": "N/A", "detail": "Supabase kliens inicializálás sikertelen"}
+        result = sb.table("sync_metadata").select("entity").limit(1).execute()
+        _ = result.data  # ensure we can read
+        return {"ok": True, "mode": "Supabase", "detail": "Supabase kapcsolat rendben"}
+    except Exception as exc:
+        logger.warning("Connection health check failed", exc_info=True)
+        return {"ok": False, "mode": "Supabase", "detail": f"Supabase hiba: {exc}"}
 
 
 # ── Disk cache (Parquet) — used as SOAP fallback only ─────────────────────
@@ -694,7 +737,7 @@ def _save_cache(df: pd.DataFrame, path: Path) -> None:
         path.parent.mkdir(exist_ok=True)
         df.to_parquet(path, index=False)
     except Exception:
-        pass
+        logger.warning("Failed to save cache to %s", path, exc_info=True)
 
 
 def _load_cache(path: Path) -> pd.DataFrame | None:
