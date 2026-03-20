@@ -13,43 +13,28 @@ from config import (
 from charts import metric_chart, movements_chart
 from helpers import (
     period_key, find_sku_col, find_name_col, load_product_master,
-    section_header, empty_state, funny_loader,
+    build_product_opts, section_header, empty_state, funny_loader,
     fetch_movements, load_warn,
 )
 
+_PAGE_SIZE = 1000
 
 # ── Sales view ────────────────────────────────────────────────────────────────
 def _analytics_sales():
     # ── Pre-load: product selector (full-width) ───────────────────────────────
     products = load_product_master()
-    prod_opts: dict = {ALL_PRODUCTS_LABEL: None}
     if not products.empty:
-        # Source 1: CSV product master
-        for _, r in products.iterrows():
-            prod_opts[f"{r['Cikkszám']}  –  {r['Cikknév']}"] = r["Cikkszám"]
+        # Source 1: CSV product master (vectorized)
+        prod_opts = build_product_opts(products)
     elif st.session_state.get("_prod_opts_cache"):
-        # Source 2: list cached from initial all-products load (survives filtered reloads)
+        # Source 2: list cached from initial all-products load
         prod_opts = st.session_state["_prod_opts_cache"]
     elif st.session_state.sales_df is not None and (st.session_state.last_query or {}).get("cikkszam") is None:
-        # Source 3: build fresh from sales_df only when it contains all-products data
-        _pm = st.session_state.sales_df
-        _sc = find_sku_col(_pm)
-        _nc = find_name_col(_pm)
-        if _sc:
-            _rows = (
-                _pm[[_sc] + ([_nc] if _nc else [])]
-                .drop_duplicates(subset=[_sc])
-                .dropna(subset=[_sc])
-                .sort_values(_nc if _nc else _sc)
-            )
-            for _, r in _rows.iterrows():
-                lbl = (
-                    f"{r[_sc]}  –  {r[_nc]}"
-                    if _nc and pd.notna(r.get(_nc))
-                    else str(r[_sc])
-                )
-                prod_opts[lbl] = r[_sc]
-            st.session_state["_prod_opts_cache"] = prod_opts  # cache for subsequent runs
+        # Source 3: build from sales_df (vectorized)
+        prod_opts = build_product_opts(st.session_state.sales_df)
+        st.session_state["_prod_opts_cache"] = prod_opts
+    else:
+        prod_opts = {ALL_PRODUCTS_LABEL: None}
 
     # ── Stable-ID selectbox ───────────────────────────────────────────────────
     # Store the SHORT cikkszam code (e.g. "4633") as the widget value instead of
@@ -174,7 +159,19 @@ def _analytics_sales():
                 "Terméknév",
                 full[_sc_full].map(_name_map).fillna(""),
             )
-    st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
+    _total_rows = len(full)
+    if _total_rows > _PAGE_SIZE:
+        _total_pages = (_total_rows + _PAGE_SIZE - 1) // _PAGE_SIZE
+        _page_num = st.number_input(
+            f"Oldal (1–{_total_pages})", min_value=1, max_value=_total_pages,
+            value=1, step=1, key="sales_table_page",
+        )
+        _start = (_page_num - 1) * _PAGE_SIZE
+        _end = min(_start + _PAGE_SIZE, _total_rows)
+        st.caption(f"{_start + 1}–{_end} / {_total_rows:,} sor")
+        st.dataframe(full.iloc[_start:_end].reset_index(drop=True), use_container_width=True, height=400)
+    else:
+        st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
     fn_sku = filter_sku.replace("/", "-") if filter_sku else "osszes"
     csv_bytes = full.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
@@ -245,7 +242,19 @@ def _analytics_movements():
     with st.expander("Mozgás adattáblázat"):
         show_m = mdf.copy()
         show_m["kelt"] = show_m["kelt"].dt.strftime("%Y-%m-%d")
-        st.dataframe(show_m.reset_index(drop=True), use_container_width=True, height=300)
+        _m_total = len(show_m)
+        if _m_total > _PAGE_SIZE:
+            _m_pages = (_m_total + _PAGE_SIZE - 1) // _PAGE_SIZE
+            _m_page = st.number_input(
+                f"Oldal (1–{_m_pages})", min_value=1, max_value=_m_pages,
+                value=1, step=1, key="mozgas_table_page",
+            )
+            _m_start = (_m_page - 1) * _PAGE_SIZE
+            _m_end = min(_m_start + _PAGE_SIZE, _m_total)
+            st.caption(f"{_m_start + 1}–{_m_end} / {_m_total:,} sor")
+            st.dataframe(show_m.iloc[_m_start:_m_end].reset_index(drop=True), use_container_width=True, height=300)
+        else:
+            st.dataframe(show_m.reset_index(drop=True), use_container_width=True, height=300)
         csv = show_m.to_csv(index=False).encode("utf-8-sig")
         st.download_button(
             "CSV letöltése",
