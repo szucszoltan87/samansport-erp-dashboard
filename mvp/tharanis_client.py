@@ -16,7 +16,7 @@ import hashlib
 import warnings
 import contextlib
 import threading
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import requests
 import pandas as pd
@@ -74,23 +74,23 @@ def _is_stale(supabase: SupabaseClient, entity: str, filter_hash: str) -> bool:
         if not result.data:
             return True  # Never synced
 
-        meta = result.data[0]
+        meta: dict[str, Any] = result.data[0]  # type: ignore[assignment]
         if meta["sync_status"] == "running":
             return False  # Already syncing
 
         if not meta["last_synced_at"]:
             return True
 
-        last_synced = datetime.fromisoformat(meta["last_synced_at"].replace("Z", "+00:00"))
+        last_synced = datetime.fromisoformat(str(meta["last_synced_at"]).replace("Z", "+00:00"))
         age = (datetime.now(timezone.utc) - last_synced).total_seconds()
-        return age > meta["ttl_seconds"]
+        return bool(age > meta["ttl_seconds"])
     except Exception:
         return True
 
 
-def _supabase_select_all(supabase: SupabaseClient, table: str, select: str, filters: list[tuple[str, tuple[str, str]]] | None = None) -> list[dict[str, object]]:
+def _supabase_select_all(supabase: SupabaseClient, table: str, select: str, filters: list[tuple[str, tuple[str, str]]] | None = None) -> list[dict[str, Any]]:
     """Paginated Supabase read to bypass the default 1000-row limit."""
-    all_rows: list[dict[str, object]] = []
+    all_rows: list[dict[str, Any]] = []
     page_size: int = 1000
     offset: int = 0
     while True:
@@ -99,7 +99,7 @@ def _supabase_select_all(supabase: SupabaseClient, table: str, select: str, filt
             for method, args in filters:
                 query = getattr(query, method)(*args)
         result = query.execute()
-        rows: list[dict[str, object]] = result.data or []
+        rows: list[dict[str, Any]] = result.data or []  # type: ignore[assignment]
         all_rows.extend(rows)
         if len(rows) < page_size:
             break
@@ -388,7 +388,7 @@ def _extract_valasz(soap_text: str) -> str:
     return valasz_m.group(1).strip() if valasz_m else ""
 
 
-def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict[str, str | float]]:
+def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict[str, Any]]:
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -426,7 +426,7 @@ def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[
     return records
 
 
-def _parse_keszlet(valasz_xml: str) -> list[dict[str, str | float]]:
+def _parse_keszlet(valasz_xml: str) -> list[dict[str, Any]]:
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -448,7 +448,7 @@ def _parse_keszlet(valasz_xml: str) -> list[dict[str, str | float]]:
     return records
 
 
-def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict[str, str | float]]:
+def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict[str, Any]]:
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
