@@ -16,7 +16,7 @@ def render_dashboard():
     df   = st.session_state.sales_df
     meta = st.session_state.last_query or {}
 
-    if df is None:
+    if df is None or df.empty:
         empty_state(
             "database",
             "Nincs betöltött adat",

@@ -100,7 +100,7 @@ def _analytics_sales():
     # ── Guard: nothing loaded yet ─────────────────────────────────────────────
     df   = st.session_state.sales_df
     meta = st.session_state.last_query or {}
-    if df is None:
+    if df is None or (isinstance(df, pd.DataFrame) and df.empty):
         empty_state(
             "bar-chart",
             "Nincs betöltött adat",
@@ -208,7 +208,7 @@ def _analytics_movements():
         pass
 
     mdf = st.session_state.mozgas_df
-    if mdf is None:
+    if mdf is None or (isinstance(mdf, pd.DataFrame) and mdf.empty):
         empty_state("activity", "Nincs mozgástörténet", "Kattints a gombra a mozgásadatok betöltéséhez.")
         return
 
