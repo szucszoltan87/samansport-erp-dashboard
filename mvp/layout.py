@@ -5,6 +5,7 @@ App shell layout – sidebar navigation and header bar.
 import streamlit as st
 from datetime import datetime
 
+import tharanis_client as api
 from config import svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE
 
 
@@ -20,6 +21,21 @@ def render_sidebar():
             '<div style="font-family:\'DM Sans\',sans-serif;font-size:0.63rem;'
             'color:rgba(224,217,209,0.4);margin-top:0.25rem;">ERP Analytics</div>'
             '</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Connection health check ─────────────────────────────────────
+        if "_conn_health" not in st.session_state:
+            st.session_state["_conn_health"] = api.check_connection()
+        _health = st.session_state["_conn_health"]
+        _dot_color = "#22c55e" if _health["ok"] else "#ef4444"
+        _status_label = _health["mode"]
+        st.markdown(
+            f'<div style="padding:0 1.5rem 0.75rem;font-size:0.6rem;'
+            f'color:rgba(224,217,209,0.5);display:flex;align-items:center;gap:0.4rem;">'
+            f'<span style="width:7px;height:7px;border-radius:50%;'
+            f'background:{_dot_color};display:inline-block;"></span>'
+            f'{_status_label}</div>',
             unsafe_allow_html=True,
         )
 
