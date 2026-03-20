@@ -31,6 +31,47 @@ if TYPE_CHECKING:
 
 load_dotenv()
 
+
+# ── Input validation ─────────────────────────────────────────────────────────
+
+_DATE_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
+_SKU_RE = re.compile(r"^[A-Za-z0-9 _./-]+$")
+
+
+def _validate_date(value: str, name: str) -> None:
+    """Validate that a date string matches YYYY.MM.DD and is a real date."""
+    if not _DATE_RE.match(value):
+        raise ValueError(f"{name} must be in YYYY.MM.DD format, got: {value!r}")
+    try:
+        datetime.strptime(value, "%Y.%m.%d")
+    except ValueError:
+        raise ValueError(f"{name} is not a valid date: {value!r}")
+
+
+def _validate_date_range(start_date: str, end_date: str) -> None:
+    """Validate both dates and ensure start_date <= end_date."""
+    _validate_date(start_date, "start_date")
+    _validate_date(end_date, "end_date")
+    if start_date > end_date:
+        raise ValueError(
+            f"start_date ({start_date}) must not be after end_date ({end_date})"
+        )
+
+
+def _sanitize_sku(cikkszam: str | None) -> str | None:
+    """Validate and sanitize a SKU string. Returns None if input is None."""
+    if cikkszam is None:
+        return None
+    cikkszam = cikkszam.strip()
+    if not cikkszam:
+        return None
+    if not _SKU_RE.match(cikkszam):
+        raise ValueError(
+            f"Invalid SKU: {cikkszam!r}. Only alphanumeric characters, spaces, "
+            f"dots, hyphens, underscores, and slashes are allowed."
+        )
+    return cikkszam
+
 # ── Tharanis SOAP credentials ────────────────────────────────────────────────
 _API_URL    = os.getenv("THARANIS_API_URL",   "https://login.tharanis.hu/apiv3.php")
 _UGYFELKOD  = os.getenv("THARANIS_UGYFELKOD", "7354")
@@ -515,6 +556,9 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
             Mennyiség (float), Nettó ár (float), Bruttó ár (float),
             Nettó érték (float), Bruttó érték (float)
     """
+    _validate_date_range(start_date, end_date)
+    cikkszam = _sanitize_sku(cikkszam)
+
     # Try Supabase first (unless force_refresh is set)
     if _USE_SUPABASE and not force_refresh:
         df = _supabase_get_sales(start_date, end_date, cikkszam)
@@ -587,6 +631,8 @@ def get_inventory(cikkszam: str | None = None, limit: int = 200) -> pd.DataFrame
         DataFrame with columns:
             Cikkszám (str), Készlet (float), Raktár 1..6 (float)
     """
+    cikkszam = _sanitize_sku(cikkszam)
+
     # Try Supabase first
     if _USE_SUPABASE:
         df = _supabase_get_inventory(cikkszam)
@@ -634,6 +680,9 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
             kelt (datetime), Cikkszám (str), Irány (str: B/K),
             Mozgástípus (str), Mennyiség (float)
     """
+    _validate_date_range(start_date, end_date)
+    cikkszam = _sanitize_sku(cikkszam)
+
     # Try Supabase first
     if _USE_SUPABASE and not force_refresh:
         df = _supabase_get_movements(start_date, end_date, cikkszam)
