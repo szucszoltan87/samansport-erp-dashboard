@@ -3,6 +3,7 @@ Shared UI components and data helpers for SamanSport ERP Dashboard.
 """
 
 import contextlib
+import logging
 import os
 import random
 
@@ -12,6 +13,8 @@ from datetime import timedelta
 
 import tharanis_client as api
 from config import CSV_PATH, LOADER_ICONS, svg
+
+logger = logging.getLogger(__name__)
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -152,7 +155,8 @@ def fetch_sales(cikkszam, start, end, force_refresh=False):
             return None
         return df
     except Exception as e:
-        st.error(f"API hiba: {e}")
+        logger.exception("fetch_sales failed (start=%s, end=%s, sku=%s)", start_str, end_str, cikkszam)
+        st.error("Nem sikerült az értékesítési adatok lekérése. Kérjük, próbálja újra később.")
         return None
 
 
@@ -170,7 +174,8 @@ def fetch_movements(cikkszam, start, end, force_refresh=False):
             return None
         return df
     except Exception as e:
-        st.error(f"API hiba: {e}")
+        logger.exception("fetch_movements failed (start=%s, end=%s, sku=%s)", start_str, end_str, cikkszam)
+        st.error("Nem sikerült a mozgásadatok lekérése. Kérjük, próbálja újra később.")
         return None
 
 
