@@ -75,6 +75,8 @@ def main():
         )
 
         if _need_load:
+            if (end_date - start_date).days > 365:
+                st.warning("⚠️ Ez sok adatot tölthet be, ami lassabb betöltést eredményezhet.")
             with funny_loader("Dashboard adatok betöltése...", load_warn(start_date, end_date)):
                 _df = fetch_sales(None, start_date, end_date)
             if _df is not None:

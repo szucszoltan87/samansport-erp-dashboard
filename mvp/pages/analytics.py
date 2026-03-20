@@ -89,6 +89,8 @@ def _analytics_sales():
         _today = datetime.now().date()
         _an_start = st.session_state.get("start_date", _today.replace(year=_today.year - 1))
         _an_end   = st.session_state.get("end_date", _today)
+        if (_an_end - _an_start).days > 365:
+            st.warning("⚠️ Ez sok adatot tölthet be, ami lassabb betöltést eredményezhet.")
         if st.button("Értékesítési adatok betöltése", key="load_sales_an", type="primary"):
             warn = load_warn(_an_start, _an_end)
             with funny_loader("Értékesítési adatok betöltése...", warn):
@@ -208,6 +210,8 @@ def _analytics_movements():
     end    = st.session_state.get("end_date",   _today)
 
     # ── Load button ───────────────────────────────────────────────────────────
+    if (end - start).days > 365:
+        st.warning("⚠️ Ez sok adatot tölthet be, ami lassabb betöltést eredményezhet.")
     col_btn, col_status = st.columns([2, 3])
     with col_btn:
         if st.button("  Mozgástörténet betöltése", key="load_mozgas_an", type="secondary"):
