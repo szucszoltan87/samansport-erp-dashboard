@@ -6,6 +6,8 @@ If data is stale, a background Edge Function syncs from the Tharanis SOAP API.
 Falls back to direct SOAP calls if Supabase is not configured.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import html
@@ -14,11 +16,16 @@ import hashlib
 import warnings
 import contextlib
 import threading
+from typing import TYPE_CHECKING
+
 import requests
 import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from supabase import Client as SupabaseClient
 
 load_dotenv()
 warnings.filterwarnings("ignore", message="Unverified HTTPS")
@@ -36,10 +43,10 @@ _SUPABASE_URL  = os.getenv("SUPABASE_URL", "")
 _SUPABASE_KEY  = os.getenv("SUPABASE_ANON_KEY", "")
 _USE_SUPABASE  = bool(_SUPABASE_URL and _SUPABASE_KEY)
 
-_supabase_client = None
+_supabase_client: SupabaseClient | None = None
 
 
-def _get_supabase():
+def _get_supabase() -> SupabaseClient | None:
     """Lazy-init Supabase client."""
     global _supabase_client
     if _supabase_client is None and _USE_SUPABASE:
@@ -55,7 +62,7 @@ def _compute_filter_hash(entity: str, **kwargs) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def _is_stale(supabase, entity: str, filter_hash: str) -> bool:
+def _is_stale(supabase: SupabaseClient, entity: str, filter_hash: str) -> bool:
     """Check sync_metadata to see if data needs refreshing."""
     try:
         result = supabase.table("sync_metadata") \
@@ -81,18 +88,18 @@ def _is_stale(supabase, entity: str, filter_hash: str) -> bool:
         return True
 
 
-def _supabase_select_all(supabase, table: str, select: str, filters: list[tuple] = None) -> list[dict]:
+def _supabase_select_all(supabase: SupabaseClient, table: str, select: str, filters: list[tuple[str, tuple[str, str]]] | None = None) -> list[dict[str, object]]:
     """Paginated Supabase read to bypass the default 1000-row limit."""
-    all_rows = []
-    page_size = 1000
-    offset = 0
+    all_rows: list[dict[str, object]] = []
+    page_size: int = 1000
+    offset: int = 0
     while True:
         query = supabase.table(table).select(select).range(offset, offset + page_size - 1)
         if filters:
             for method, args in filters:
                 query = getattr(query, method)(*args)
         result = query.execute()
-        rows = result.data or []
+        rows: list[dict[str, object]] = result.data or []
         all_rows.extend(rows)
         if len(rows) < page_size:
             break
@@ -100,9 +107,9 @@ def _supabase_select_all(supabase, table: str, select: str, filters: list[tuple]
     return all_rows
 
 
-def _trigger_sync_background(entity: str, filters: dict):
+def _trigger_sync_background(entity: str, filters: dict[str, str | None]) -> None:
     """Fire-and-forget: trigger the sync-entity Edge Function in a background thread."""
-    def _do_sync():
+    def _do_sync() -> None:
         try:
             supabase = _get_supabase()
             if supabase:
@@ -381,7 +388,7 @@ def _extract_valasz(soap_text: str) -> str:
     return valasz_m.group(1).strip() if valasz_m else ""
 
 
-def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict]:
+def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict[str, str | float]]:
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -419,7 +426,7 @@ def _parse_tetelek(valasz_xml: str, cikkszam_filter: str | None = None) -> list[
     return records
 
 
-def _parse_keszlet(valasz_xml: str) -> list[dict]:
+def _parse_keszlet(valasz_xml: str) -> list[dict[str, str | float]]:
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
@@ -441,7 +448,7 @@ def _parse_keszlet(valasz_xml: str) -> list[dict]:
     return records
 
 
-def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict]:
+def _parse_mozgas(valasz_xml: str, cikkszam_filter: str | None = None) -> list[dict[str, str | float]]:
     records = []
     for elem_m in re.finditer(r"<elem>(.*?)</elem>", valasz_xml, re.DOTALL):
         elem = elem_m.group(1)
