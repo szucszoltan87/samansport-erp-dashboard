@@ -12,7 +12,7 @@ import pandas as pd
 from datetime import timedelta
 
 import tharanis_client as api
-from config import CSV_PATH, LOADER_ICONS, svg
+from config import CSV_PATH, ALL_PRODUCTS_LABEL, LOADER_ICONS, svg
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def find_name_col(df: pd.DataFrame):
     return None
 
 
-@st.cache_data(show_spinner="Termék lista betöltése…")
+@st.cache_data(ttl=timedelta(hours=6), show_spinner="Termék lista betöltése…")
 def load_product_master() -> pd.DataFrame:
     if not os.path.exists(CSV_PATH):
         return pd.DataFrame(columns=["Cikkszám", "Cikknév"])
@@ -56,6 +56,31 @@ def load_product_master() -> pd.DataFrame:
         .sort_values("Cikknév")
         .reset_index(drop=True)
     )
+
+
+def build_product_opts(products: pd.DataFrame) -> dict[str, str | None]:
+    """Build {label: sku} dict from a product DataFrame using vectorized ops."""
+    opts: dict[str, str | None] = {ALL_PRODUCTS_LABEL: None}
+    if products.empty:
+        return opts
+    sc = find_sku_col(products)
+    nc = find_name_col(products)
+    if not sc:
+        return opts
+    subset = (
+        products[[sc] + ([nc] if nc else [])]
+        .drop_duplicates(subset=[sc])
+        .dropna(subset=[sc])
+        .sort_values(nc if nc else sc)
+    )
+    if nc:
+        labels = subset[sc].astype(str) + "  –  " + subset[nc].fillna("").astype(str)
+    else:
+        labels = subset[sc].astype(str)
+    skus = subset[sc].tolist()
+    for lbl, sku in zip(labels.tolist(), skus):
+        opts[lbl] = sku
+    return opts
 
 
 # ── UI components ─────────────────────────────────────────────────────────────
@@ -127,14 +152,14 @@ def info_banner(text: str, icon_name: str = "info") -> None:
 
 # ── Fetch helpers ─────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=timedelta(hours=24), show_spinner=False)
+@st.cache_data(ttl=timedelta(hours=24), show_spinner="Értékesítési adatok betöltése…")
 def _cached_get_sales(start_str: str, end_str: str,
                       cikkszam: str | None) -> pd.DataFrame | None:
     """In-memory cache (24h TTL) backed by Parquet disk cache in tharanis_client."""
     return api.get_sales(start_str, end_str, cikkszam)
 
 
-@st.cache_data(ttl=timedelta(hours=24), show_spinner=False)
+@st.cache_data(ttl=timedelta(hours=24), show_spinner="Mozgásadatok betöltése…")
 def _cached_get_movements(start_str: str, end_str: str,
                           cikkszam: str | None) -> pd.DataFrame | None:
     """In-memory cache (24h TTL) backed by Parquet disk cache in tharanis_client."""
