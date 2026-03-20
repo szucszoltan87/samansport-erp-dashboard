@@ -9,6 +9,22 @@ import pandas as pd
 from config import C
 
 
+def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
+    """Render a chart with a centered 'Nincs adat' annotation."""
+    fig.add_annotation(
+        text="Nincs adat",
+        xref="paper", yref="paper", x=0.5, y=0.5,
+        showarrow=False,
+        font=dict(size=18, color="#9ca3af", family="Inter"),
+    )
+    fig.update_layout(
+        paper_bgcolor="white", plot_bgcolor="#fafafa", height=height,
+        margin=dict(l=0, r=0, t=10, b=0),
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
 def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
     fig.update_layout(
         title=dict(text=title, font=dict(size=13, color="#374151", family="Inter"), x=0) if title else dict(text=""),
@@ -53,6 +69,8 @@ def hbar_chart(labels, values, color: str, height: int = 300) -> None:
 
 def revenue_trend_chart(monthly: pd.DataFrame) -> None:
     """Area line chart for revenue trend (Bruttó forgalom)."""
+    if monthly.empty:
+        return _empty_chart_placeholder(go.Figure(), height=260)
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=monthly["Periódus"], y=monthly["Bruttó érték"],
@@ -66,6 +84,8 @@ def revenue_trend_chart(monthly: pd.DataFrame) -> None:
 
 def quantity_bar_chart(mq: pd.DataFrame) -> None:
     """Bar chart for sold quantities per period."""
+    if mq.empty:
+        return _empty_chart_placeholder(go.Figure(), height=230)
     fig = go.Figure(go.Bar(
         x=mq["Periódus"], y=mq["Mennyiség"],
         marker=dict(color="#2d2d42", opacity=0.8),
@@ -76,6 +96,8 @@ def quantity_bar_chart(mq: pd.DataFrame) -> None:
 
 def top10_products_chart(grp: pd.DataFrame) -> None:
     """Horizontal bar chart for top 10 products by revenue."""
+    if grp.empty:
+        return _empty_chart_placeholder(go.Figure(), height=300)
     max_val = grp["Forgalom"].max()
     fig = go.Figure(go.Bar(
         x=grp["Forgalom"], y=grp["Label"].tolist(), orientation="h",
@@ -106,6 +128,8 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
 def metric_chart(grouped: pd.DataFrame, col_name: str, metric: str,
                  unit: str, ytitle: str, chart_type: str) -> None:
     """Bar or line chart for a single analytics metric."""
+    if grouped.empty:
+        return _empty_chart_placeholder(go.Figure(), height=380)
     fig = go.Figure()
     ht = f"%{{x}}<br><b>%{{y:,.0f}} {unit}</b><extra></extra>"
     if chart_type == "Oszlop":
@@ -129,6 +153,8 @@ def metric_chart(grouped: pd.DataFrame, col_name: str, metric: str,
 def movements_chart(all_p: list, be_v: list, ki_v: list,
                     chart_type: str) -> None:
     """Bar or line chart for warehouse movements (incoming vs outgoing)."""
+    if not all_p:
+        return _empty_chart_placeholder(go.Figure(), height=380)
     fig = go.Figure()
     if chart_type == "Oszlop":
         fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["coral"],
