@@ -14,7 +14,6 @@ import re
 import html
 import json
 import hashlib
-import warnings
 import contextlib
 import threading
 from typing import Any, TYPE_CHECKING
@@ -31,7 +30,6 @@ if TYPE_CHECKING:
     from supabase import Client as SupabaseClient
 
 load_dotenv()
-warnings.filterwarnings("ignore", message="Unverified HTTPS")
 
 # ── Tharanis SOAP credentials ────────────────────────────────────────────────
 _API_URL    = os.getenv("THARANIS_API_URL",   "https://login.tharanis.hu/apiv3.php")
@@ -379,7 +377,7 @@ def _post_soap(entity: str, leker_xml: str) -> str:
             _API_URL,
             data=envelope.encode("utf-8"),
             headers=_HEADERS,
-            verify=False,
+            verify=True,
             timeout=120,
         )
         r.raise_for_status()
