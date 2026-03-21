@@ -90,6 +90,29 @@ def main():
                 st.session_state.mozgas_df = None
                 st.session_state.last_mozgas_query = {}
                 st.session_state["_prod_opts_cache"] = build_product_opts(_df)
+                st.rerun()
+
+    elif page == "analytics":
+        # Auto-reload sales data when dates change on analytics page too
+        _last_an = st.session_state.last_query or {}
+        if (
+            st.session_state.sales_df is not None
+            and (_last_an.get("start") != start_date or _last_an.get("end") != end_date)
+        ):
+            with funny_loader("Adatok frissítése...", load_warn(start_date, end_date)):
+                _df = fetch_sales(None, start_date, end_date)
+            if _df is not None:
+                st.session_state.sales_df = _df
+                st.session_state.last_query = {
+                    "cikkszam": None,
+                    "label":    ALL_PRODUCTS_LABEL,
+                    "start":    start_date,
+                    "end":      end_date,
+                }
+                st.session_state.mozgas_df = None
+                st.session_state.last_mozgas_query = {}
+                st.session_state["_prod_opts_cache"] = build_product_opts(_df)
+                st.rerun()
 
     # ── Page routing ──────────────────────────────────────────────────────
     if page == "dashboard":
