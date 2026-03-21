@@ -145,7 +145,7 @@ def _analytics_sales():
     # ── Chart ─────────────────────────────────────────────────────────────────
     section_header(
         metric,
-        f"{display_label}  ·  {meta.get('start', '')} – {meta.get('end', '')}",
+        f"{display_label}  ·  {period} bontás  ·  {meta.get('start', '')} – {meta.get('end', '')}",
         "bar-chart",
     )
     metric_chart(grouped, col_name, metric, unit, ytitle, chart_type)
@@ -249,7 +249,7 @@ def _analytics_movements():
 
     section_header(
         "Raktári mozgások",
-        f"{meta_m.get('start', '')} – {meta_m.get('end', '')}",
+        f"{period_m} bontás  ·  {meta_m.get('start', '')} – {meta_m.get('end', '')}",
         "activity",
     )
     movements_chart(all_p, be_v, ki_v, chart_m)
