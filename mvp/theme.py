@@ -467,6 +467,24 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     border-color: #c0392b !important;
 }}
 
+/* ── Quick date range buttons ── */
+.main div.stButton:has(button[key^="qr_"]) > button {{
+    background: #f3f4f6 !important;
+    border: 1px solid #e5e7eb !important;
+    color: #374151 !important;
+    padding: 0.15rem 0.5rem !important;
+    font-size: 0.58rem !important;
+    font-weight: 500 !important;
+    min-height: 0 !important;
+    border-radius: 6px !important;
+    line-height: 1.3 !important;
+}}
+.main div.stButton:has(button[key^="qr_"]) > button:hover {{
+    background: #e5e7eb !important;
+    border-color: #d1d5db !important;
+    color: #111827 !important;
+}}
+
 /* ── Misc ── */
 .hline {{ height: 1px; background: #f1f5f9; margin: 1rem 0; }}
 .stDownloadButton > button {{

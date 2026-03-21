@@ -3,9 +3,9 @@ App shell layout – sidebar navigation and header bar.
 """
 
 import logging
+from datetime import datetime, timedelta
 
 import streamlit as st
-from datetime import datetime
 
 import tharanis_client as api
 from theme import svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE
@@ -155,6 +155,24 @@ def render_header():
         unsafe_allow_html=True,
     )
 
+    # ── Quick date range buttons ─────────────────────────────────────────
+    _ranges = {
+        "Ma":             (_today, _today),
+        "Utolsó 7 nap":  (_today - timedelta(days=7), _today),
+        "Utolsó 30 nap": (_today - timedelta(days=30), _today),
+        "Idén":           (_today.replace(month=1, day=1), _today),
+        "Tavaly":         (_today.replace(year=_today.year - 1, month=1, day=1),
+                           _today.replace(year=_today.year - 1, month=12, day=31)),
+    }
+    qcols = st.columns(len(_ranges))
+    for col, (label, (r_start, r_end)) in zip(qcols, _ranges.items()):
+        with col:
+            if st.button(label, key=f"qr_{label}", use_container_width=True):
+                st.session_state["start_date"] = r_start
+                st.session_state["end_date"] = r_end
+                st.rerun()
+
+    # ── Date pickers ──────────────────────────────────────────────────────
     dc1, dc2, dc3 = st.columns([5, 5, 1])
     with dc1:
         start_date = st.date_input(
