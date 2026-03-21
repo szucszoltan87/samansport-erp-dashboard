@@ -9,19 +9,32 @@ import streamlit as st
 
 # ── Color palette ─────────────────────────────────────────────────────────────
 C = {
-    "blue":   "#2563eb",
-    "teal":   "#2563eb",
-    "indigo": "#4f46e5",
+    "blue":   "#4E5BA6",
+    "teal":   "#4E5BA6",
+    "indigo": "#3E4784",
     "green":  "#10b981",
     "red":    "#ef4444",
-    "orange": "#f59e0b",
-    "purple": "#8b5cf6",
-    "slate":  "#64748b",
-    "coral":  "#e74c3c",
-    "charcoal": "#1c1c2e",
-    "sidebar_bg": "#1c1c2e",
-    "sidebar_text": "#a0a3b1",
-    "sidebar_active_bg": "rgba(231,76,60,0.15)",
+    "amber":  "#f59e0b",
+    "purple": "#717BBC",
+    "slate":  "#B3B8DB",
+    "accent": "#4E5BA6",
+    "charcoal": "#293056",
+    "sidebar_bg": "#363F72",
+    "sidebar_text": "#B3B8DB",
+    "sidebar_active_bg": "rgba(78,91,166,0.18)",
+    # Grey-blue scale
+    "25":  "#FCFCFD",
+    "50":  "#F8F9FC",
+    "100": "#EAECF5",
+    "200": "#D5D9EB",
+    "300": "#B3B8DB",
+    "400": "#717BBC",
+    "500": "#4E5BA6",
+    "600": "#3E4784",
+    "700": "#363F72",
+    "800": "#293056",
+    "900": "#101323",
+    "950": "#0D0F1C",
 }
 
 # ── Sidebar width ─────────────────────────────────────────────────────────────
@@ -77,7 +90,7 @@ NAV_ACTIVE_STYLE = (
     "display:flex;align-items:center;gap:0.6rem;"
     "padding:0.4rem 0.65rem;border-radius:0.5rem;"
     "font-size:0.66rem;font-weight:500;font-family:'DM Sans',sans-serif;"
-    "background:#e07a5f;color:#f9f7f4;"
+    "background:#4E5BA6;color:#FCFCFD;"
     "box-shadow:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -2px rgba(0,0,0,0.1);"
     "height:2.1rem;box-sizing:border-box;"
 )
@@ -85,7 +98,7 @@ NAV_INACTIVE_STYLE = (
     "display:flex;align-items:center;gap:0.6rem;"
     "padding:0.4rem 0.65rem;border-radius:0.5rem;"
     "font-size:0.66rem;font-weight:500;font-family:'DM Sans',sans-serif;"
-    "background:transparent;color:rgba(224,217,209,0.6);"
+    "background:transparent;color:rgba(179,184,219,0.6);"
     "height:2.1rem;box-sizing:border-box;"
 )
 
@@ -94,26 +107,37 @@ FONT_FAMILY = "Inter"
 
 PLOTLY_BASE_LAYOUT = dict(
     paper_bgcolor="white",
-    plot_bgcolor="#fafafa",
-    font=dict(color="#374151", size=11, family=FONT_FAMILY),
+    plot_bgcolor="#FCFCFD",
+    font=dict(color="#293056", size=11, family=FONT_FAMILY),
     separators=", ",          # Hungarian: comma decimal, space thousands
     hovermode="x unified",
     showlegend=True,
     legend=dict(
         orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-        font=dict(size=13, family=FONT_FAMILY, color="#374151"),
+        font=dict(size=13, family=FONT_FAMILY, color="#293056"),
         bgcolor="rgba(0,0,0,0)",
     ),
     xaxis=dict(
-        gridcolor="#f0f0f0", linecolor="#e5e7eb",
-        tickfont=dict(color="#9ca3af", size=11), tickangle=-30,
+        gridcolor="#EAECF5", linecolor="#D5D9EB",
+        tickfont=dict(color="#717BBC", size=11), tickangle=-30,
     ),
     yaxis=dict(
-        gridcolor="#f0f0f0", linecolor="#e5e7eb",
-        tickfont=dict(color="#9ca3af", size=11), zeroline=False,
+        gridcolor="#EAECF5", linecolor="#D5D9EB",
+        tickfont=dict(color="#717BBC", size=11), zeroline=False,
         separatethousands=True,
     ),
 )
+
+# ── Plotly chart color sequence ──────────────────────────────────────────────
+PLOTLY_COLORS = [
+    "#4E5BA6",  # 500 – primary
+    "#717BBC",  # 400
+    "#3E4784",  # 600
+    "#B3B8DB",  # 300
+    "#293056",  # 800
+    "#D5D9EB",  # 200
+    "#101323",  # 900
+]
 
 PLOTLY_NO_MODEBAR = {"displayModeBar": False}
 
@@ -146,7 +170,7 @@ def inject_css() -> None:
 
 /* ── Layout ── */
 .main .block-container {{ padding: 1.5rem 1rem 1.5rem 1.75rem; max-width: 100%; }}
-.main {{ background-color: #f8fafc; }}
+.main {{ background-color: #F8F9FC; }}
 
 /* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header {{ visibility: hidden; }}
@@ -160,7 +184,7 @@ section[data-testid="stSidebar"] {{
     max-width: {_sb_w} !important;
 }}
 section[data-testid="stSidebar"] > div {{
-    background: #221e1b !important;
+    background: #363F72 !important;
     padding: 0 !important;
     border-right: none !important;
     width: {_sb_w} !important;
@@ -215,7 +239,7 @@ section[data-testid="stSidebar"] > div > button {{
 }}
 /* When hovering inactive button, style the preceding HTML row: background + white text + white icon */
 [data-testid="stSidebar"] .element-container:has(+ .element-container div.stButton > button:not([kind="primary"]):hover) div[style*="transparent"] {{
-    background: #322c29 !important;
+    background: #293056 !important;
     color: #ffffff !important;
 }}
 [data-testid="stSidebar"] .element-container:has(+ .element-container div.stButton > button:not([kind="primary"]):hover) div[style*="transparent"] svg {{
@@ -241,7 +265,7 @@ section[data-testid="stSidebar"] > div > button {{
     background: white;
     border-radius: 10px;
     padding: 0.65rem 0.85rem;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #EAECF5;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     display: flex;
     justify-content: space-between;
@@ -285,7 +309,7 @@ section[data-testid="stSidebar"] > div > button {{
 .section-card {{
     background: white;
     border-radius: 10px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #EAECF5;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     padding: 1.25rem 1.25rem 0.75rem;
     margin-bottom: 1rem;
@@ -322,7 +346,7 @@ section[data-testid="stSidebar"] > div > button {{
 
 /* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {{
-    background: #f3f4f6;
+    background: #F8F9FC;
     border-radius: 8px;
     padding: 0.2rem;
     gap: 0.1rem;
@@ -375,8 +399,8 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
 
 /* ── Selectbox ── */
 .stSelectbox div[data-baseweb="select"] > div {{
-    background: #f9fafb !important;
-    border-color: #e5e7eb !important;
+    background: #FCFCFD !important;
+    border-color: #EAECF5 !important;
     border-radius: 8px !important;
     font-size: 0.66rem !important;
     color: #111827 !important;
@@ -395,7 +419,7 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     padding: 3rem 1.5rem;
     background: white;
     border-radius: 10px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #EAECF5;
 }}
 .empty-icon {{ margin: 0 auto 0.75rem; display: flex; justify-content: center; }}
 .empty-title {{ font-size: 0.76rem; font-weight: 700; color: #374151; }}
@@ -416,7 +440,7 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
 .badge-orange {{ background: #fff7ed; color: #c2410c; }}
 .badge-yellow {{ background: #fef9c3; color: #854d0e; }}
 .badge-green  {{ background: #f0fdf4; color: #166534; }}
-.badge-gray   {{ background: #f3f4f6; color: #6b7280; }}
+.badge-gray   {{ background: #F8F9FC; color: #6b7280; }}
 .badge-blue   {{ background: #eff6ff; color: #1d4ed8; }}
 
 /* ── Risk table ── */
@@ -429,16 +453,16 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid #EAECF5;
 }}
 .risk-table td {{
     padding: 0.5rem 0.65rem;
-    border-bottom: 1px solid #f9fafb;
+    border-bottom: 1px solid #FCFCFD;
     color: #374151;
     vertical-align: middle;
 }}
 .risk-table tr:last-child td {{ border-bottom: none; }}
-.risk-table tr:hover td {{ background: #f9fafb; }}
+.risk-table tr:hover td {{ background: #FCFCFD; }}
 
 /* ── Selectbox dropdown ── */
 [data-baseweb="menu"] {{
@@ -451,8 +475,8 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
 
 /* ── Main area primary button ── */
 .main div.stButton > button[kind="primary"] {{
-    background: #e74c3c !important;
-    border-color: #e74c3c !important;
+    background: #4E5BA6 !important;
+    border-color: #4E5BA6 !important;
     color: white !important;
     padding: 0.25rem 0.8rem !important;
     font-size: 0.6rem !important;
@@ -460,17 +484,17 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     line-height: 1.3 !important;
     min-height: 0 !important;
     border-radius: 8px !important;
-    box-shadow: 0 1px 3px rgba(231,76,60,0.25) !important;
+    box-shadow: 0 1px 3px rgba(78,91,166,0.25) !important;
 }}
 .main div.stButton > button[kind="primary"]:hover {{
-    background: #c0392b !important;
-    border-color: #c0392b !important;
+    background: #3E4784 !important;
+    border-color: #3E4784 !important;
 }}
 
 /* ── Quick date range buttons ── */
 .main div.stButton:has(button[key^="qr_"]) > button {{
-    background: #f3f4f6 !important;
-    border: 1px solid #e5e7eb !important;
+    background: #F8F9FC !important;
+    border: 1px solid #EAECF5 !important;
     color: #374151 !important;
     padding: 0.15rem 0.5rem !important;
     font-size: 0.58rem !important;
@@ -480,24 +504,24 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     line-height: 1.3 !important;
 }}
 .main div.stButton:has(button[key^="qr_"]) > button:hover {{
-    background: #e5e7eb !important;
-    border-color: #d1d5db !important;
+    background: #EAECF5 !important;
+    border-color: #D5D9EB !important;
     color: #111827 !important;
 }}
 
 /* ── Misc ── */
-.hline {{ height: 1px; background: #f1f5f9; margin: 1rem 0; }}
+.hline {{ height: 1px; background: #EAECF5; margin: 1rem 0; }}
 .stDownloadButton > button {{
-    background: #f9fafb !important;
-    border: 1px solid #e5e7eb !important;
+    background: #FCFCFD !important;
+    border: 1px solid #EAECF5 !important;
     color: #374151 !important;
     border-radius: 8px !important;
     font-size: 0.65rem !important;
     font-weight: 500 !important;
 }}
 .stDownloadButton > button:hover {{
-    background: #f3f4f6 !important;
-    border-color: #d1d5db !important;
+    background: #F8F9FC !important;
+    border-color: #D5D9EB !important;
 }}
 
 /* ── Info banner ── */
@@ -506,11 +530,11 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     align-items: center;
     gap: 0.5rem;
     padding: 0.65rem 0.85rem;
-    background: rgba(231,76,60,0.06);
-    border: 1px solid rgba(231,76,60,0.15);
+    background: rgba(78,91,166,0.06);
+    border: 1px solid rgba(78,91,166,0.15);
     border-radius: 8px;
     font-size: 0.65rem;
-    color: #e74c3c;
+    color: #4E5BA6;
     margin-bottom: 0.85rem;
 }}
 
@@ -553,7 +577,7 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
 .load-title {{
     font-size: 0.72rem;
     font-weight: 600;
-    color: #e74c3c;
+    color: #4E5BA6;
     text-align: center;
     letter-spacing: -0.01em;
 }}
@@ -564,8 +588,8 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     max-width: 340px;
     line-height: 1.5;
     padding: 0.55rem 0.9rem;
-    background: #f8fafc;
-    border: 1px solid #cbd5e1;
+    background: #F8F9FC;
+    border: 1px solid #D5D9EB;
     border-radius: 8px;
 }}
 
@@ -600,7 +624,7 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
 /* ── Main area date inputs ── */
 .main .stDateInput input {{
     background: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
+    border: 1px solid #EAECF5 !important;
     border-radius: 8px !important;
     font-size: 0.63rem !important;
     color: #111827 !important;
@@ -638,7 +662,7 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     transition: color 0.15s !important;
 }}
 .main div.stButton:has(button[key="force_refresh_btn"]) > button:hover {{
-    color: #e74c3c !important;
+    color: #4E5BA6 !important;
     background: none !important;
     background-color: transparent !important;
 }}
