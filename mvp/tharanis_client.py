@@ -742,6 +742,28 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
         )
 
 
+def get_last_sync_time() -> str | None:
+    """Return the most recent last_synced_at from sync_metadata, or None."""
+    if not _USE_SUPABASE:
+        return None
+    try:
+        sb = _get_supabase()
+        if sb is None:
+            return None
+        result = (
+            sb.table("sync_metadata")
+            .select("last_synced_at")
+            .order("last_synced_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            return result.data[0]["last_synced_at"]
+    except Exception:
+        logger.debug("Failed to fetch last sync time", exc_info=True)
+    return None
+
+
 def check_connection() -> dict[str, Any]:
     """Test Supabase connectivity. Returns {'ok': bool, 'mode': str, 'detail': str}."""
     if not _USE_SUPABASE:

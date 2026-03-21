@@ -2,11 +2,15 @@
 App shell layout – sidebar navigation and header bar.
 """
 
+import logging
+
 import streamlit as st
 from datetime import datetime
 
 import tharanis_client as api
 from theme import svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE
+
+logger = logging.getLogger(__name__)
 
 
 def render_sidebar():
@@ -30,12 +34,29 @@ def render_sidebar():
         _health = st.session_state["_conn_health"]
         _dot_color = "#22c55e" if _health["ok"] else "#ef4444"
         _status_label = _health["mode"]
+        # Last sync timestamp
+        if "_last_sync_ts" not in st.session_state:
+            _raw_ts = api.get_last_sync_time()
+            if _raw_ts:
+                try:
+                    _parsed = datetime.fromisoformat(_raw_ts.replace("Z", "+00:00"))
+                    st.session_state["_last_sync_ts"] = _parsed.strftime("%Y.%m.%d %H:%M")
+                except Exception:
+                    st.session_state["_last_sync_ts"] = None
+            else:
+                st.session_state["_last_sync_ts"] = None
+        _sync_display = st.session_state["_last_sync_ts"]
+        _sync_line = (
+            f'<br><span style="opacity:0.7;">Legutóbbi szinkronizálás: {_sync_display}</span>'
+            if _sync_display else ""
+        )
+
         st.markdown(
             f'<div style="padding:0 1.5rem 0.75rem;font-size:0.6rem;'
             f'color:rgba(224,217,209,0.5);display:flex;align-items:center;gap:0.4rem;">'
             f'<span style="width:7px;height:7px;border-radius:50%;'
             f'background:{_dot_color};display:inline-block;"></span>'
-            f'{_status_label}</div>',
+            f'{_status_label}{_sync_line}</div>',
             unsafe_allow_html=True,
         )
 
