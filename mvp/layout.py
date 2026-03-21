@@ -85,9 +85,9 @@ def render_sidebar():
                 f'</div></div>',
                 unsafe_allow_html=True,
             )
-            # Invisible clickable button overlaid via CSS margin-top: -2.55rem
+            # Invisible clickable button overlaid on the HTML nav row
             if st.button(
-                label, key=f"nav_{page_id}",
+                "\u200b", key=f"nav_{page_id}",
                 type="primary" if is_active else "secondary",
                 use_container_width=True,
             ):

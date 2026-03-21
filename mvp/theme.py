@@ -231,6 +231,14 @@ section[data-testid="stSidebar"] > div > button {{
     font-size: 0 !important;
     min-height: 0 !important;
     cursor: pointer !important;
+    overflow: hidden !important;
+}}
+/* Hide all inner text/spans inside sidebar nav buttons */
+[data-testid="stSidebar"] div.stButton > button * {{
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden !important;
 }}
 /* Hover on inactive nav: invisible button stays transparent, HTML row changes */
 [data-testid="stSidebar"] div.stButton > button:hover {{
