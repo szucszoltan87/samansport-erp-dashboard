@@ -58,7 +58,7 @@ def hbar_chart(labels, values, color: str, height: int = 300) -> None:
         **_base_layout(
             height=height,
             margin=dict(l=0, r=16, t=0, b=0),
-            yaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#374151", size=10), automargin=True),
+            yaxis=dict(gridcolor="#EAECF5", tickfont=dict(color="#374151", size=10), automargin=True),
         ),
     )
     st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
@@ -72,8 +72,8 @@ def revenue_trend_chart(monthly: pd.DataFrame) -> None:
     fig.add_trace(go.Scatter(
         x=monthly["Periódus"], y=monthly["Bruttó érték"],
         mode="lines", name="Bruttó forgalom",
-        line=dict(color=C["coral"], width=2.5),
-        fill="tozeroy", fillcolor="rgba(231,76,60,0.08)",
+        line=dict(color=C["accent"], width=2.5),
+        fill="tozeroy", fillcolor="rgba(78,91,166,0.08)",
         hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
     ))
     chart_style(fig, height=260)
@@ -98,7 +98,7 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
     max_val = grp["Forgalom"].max()
     fig = go.Figure(go.Bar(
         x=grp["Forgalom"], y=grp["Label"].tolist(), orientation="h",
-        marker=dict(color=C["coral"], opacity=0.85),
+        marker=dict(color=C["accent"], opacity=0.85),
         text=grp.apply(lambda r: f"  {hu_thousands(r['Forgalom'])} Ft  ({r['Pct']:.1f}%)", axis=1),
         textposition="outside",
         textfont=dict(size=11, color="#374151"),
@@ -110,11 +110,11 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
         **_base_layout(
             height=max(400, len(grp) * 42),
             margin=dict(l=0, r=20, t=0, b=30),
-            xaxis=dict(range=[0, max_val * 1.35], gridcolor="#f1f5f9",
+            xaxis=dict(range=[0, max_val * 1.35], gridcolor="#EAECF5",
                        tickfont=dict(color="#9ca3af", size=10),
                        tickformat=",.0f", separatethousands=True,
                        title=dict(text="Bruttó forgalom (HUF)", font=dict(size=11, color="#9ca3af"))),
-            yaxis=dict(type="category", gridcolor="#f1f5f9",
+            yaxis=dict(type="category", gridcolor="#EAECF5",
                        tickfont=dict(color="#374151", size=10),
                        automargin=True, title=None),
         ),
@@ -132,15 +132,15 @@ def metric_chart(grouped: pd.DataFrame, col_name: str, metric: str,
     if chart_type == "Oszlop":
         fig.add_trace(go.Bar(
             x=grouped["Periódus"], y=grouped[col_name],
-            marker_color=C["coral"], name=metric, hovertemplate=ht,
+            marker_color=C["accent"], name=metric, hovertemplate=ht,
         ))
     else:
         fig.add_trace(go.Scatter(
             x=grouped["Periódus"], y=grouped[col_name],
             mode="lines+markers", name=metric,
-            line=dict(color=C["coral"], width=2.5),
-            marker=dict(size=6, color=C["coral"]),
-            fill="tozeroy", fillcolor="rgba(231,76,60,0.07)",
+            line=dict(color=C["accent"], width=2.5),
+            marker=dict(size=6, color=C["accent"]),
+            fill="tozeroy", fillcolor="rgba(78,91,166,0.07)",
             hovertemplate=ht,
         ))
     fig.update_layout(yaxis_title=ytitle)
@@ -154,14 +154,14 @@ def movements_chart(all_p: list, be_v: list, ki_v: list,
         return _empty_chart_placeholder(go.Figure(), height=380)
     fig = go.Figure()
     if chart_type == "Oszlop":
-        fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["coral"],
+        fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["accent"],
                              hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
         fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color=C["charcoal"],
                              hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
         fig.update_layout(barmode="group")
     else:
         fig.add_trace(go.Scatter(x=all_p, y=be_v, name="Beérkező",
-                                 mode="lines+markers", line=dict(color=C["coral"], width=2.5),
+                                 mode="lines+markers", line=dict(color=C["accent"], width=2.5),
                                  marker=dict(size=6)))
         fig.add_trace(go.Scatter(x=all_p, y=ki_v, name="Kiadó",
                                  mode="lines+markers", line=dict(color=C["charcoal"], width=2.5),

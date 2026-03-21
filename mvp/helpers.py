@@ -123,7 +123,7 @@ def kpi_grid(*cards, cols: int = 4) -> None:
 def section_header(title: str, sub: str = "", icon_name: str = "") -> None:
     icon_html = (
         f'<span style="display:inline-flex;align-items:center;">'
-        f'{svg(icon_name, 15, "#e74c3c")}</span>'
+        f'{svg(icon_name, 15, "#4E5BA6")}</span>'
         if icon_name else ""
     )
     sub_html = f'<div class="section-sub">{sub}</div>' if sub else ""
@@ -154,7 +154,7 @@ def empty_state(icon_name: str, title: str, sub: str) -> None:
 
 def info_banner(text: str, icon_name: str = "info") -> None:
     st.markdown(
-        f'<div class="info-banner">{svg(icon_name, 15, "#e74c3c")}{text}</div>',
+        f'<div class="info-banner">{svg(icon_name, 15, "#4E5BA6")}{text}</div>',
         unsafe_allow_html=True,
     )
 
@@ -242,9 +242,9 @@ def funny_loader(label: str = "Adatok betöltése...", warn: str = ""):
         f'    <svg class="load-ring-svg" width="68" height="68" viewBox="0 0 68 68"'
         f'         xmlns="http://www.w3.org/2000/svg">'
         f'      <circle cx="34" cy="34" r="28" fill="none"'
-        f'              stroke="rgba(231,76,60,0.15)" stroke-width="5"/>'
+        f'              stroke="rgba(78,91,166,0.15)" stroke-width="5"/>'
         f'      <circle class="load-ring-arc" cx="34" cy="34" r="28" fill="none"'
-        f'              stroke="#e74c3c" stroke-width="5" stroke-linecap="round"'
+        f'              stroke="#4E5BA6" stroke-width="5" stroke-linecap="round"'
         f'              stroke-dasharray="1 175" stroke-dashoffset="0"/>'
         f'    </svg>'
         f'    <div class="load-icon-center">{icon}</div>'

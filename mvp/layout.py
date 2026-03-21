@@ -19,11 +19,11 @@ def render_sidebar():
         st.markdown(
             '<div style="padding:1.5rem 1.5rem 1rem;">'
             '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:1.02rem;'
-            'font-weight:700;color:#e0d9d1;letter-spacing:-0.025em;line-height:1.2;">'
-            '<span style="color:#e07a5f;">&#9632;</span> '
-            'Saman<span style="color:rgba(224,217,209,0.6);">Sport</span></div>'
+            'font-weight:700;color:#D5D9EB;letter-spacing:-0.025em;line-height:1.2;">'
+            '<span style="color:#4E5BA6;">&#9632;</span> '
+            'Saman<span style="color:rgba(179,184,219,0.6);">Sport</span></div>'
             '<div style="font-family:\'DM Sans\',sans-serif;font-size:0.63rem;'
-            'color:rgba(224,217,209,0.4);margin-top:0.25rem;">ERP Elemzések</div>'
+            'color:rgba(179,184,219,0.4);margin-top:0.25rem;">ERP Elemzések</div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -53,7 +53,7 @@ def render_sidebar():
 
         st.markdown(
             f'<div style="padding:0 1.5rem 0.75rem;font-size:0.6rem;'
-            f'color:rgba(224,217,209,0.5);display:flex;align-items:center;gap:0.4rem;">'
+            f'color:rgba(179,184,219,0.5);display:flex;align-items:center;gap:0.4rem;">'
             f'<span style="width:7px;height:7px;border-radius:50%;'
             f'background:{_dot_color};display:inline-block;"></span>'
             f'{_status_label}{_sync_line}</div>',
@@ -68,11 +68,11 @@ def render_sidebar():
         for page_id, icon_name, label in _pages:
             is_active = st.session_state.page == page_id
             style = NAV_ACTIVE_STYLE if is_active else NAV_INACTIVE_STYLE
-            icon_c = "#f9f7f4" if is_active else "rgba(224,217,209,0.6)"
+            icon_c = "#FCFCFD" if is_active else "rgba(179,184,219,0.6)"
             # Chevron on right for active item
             chevron = (
                 f'<span style="margin-left:auto;opacity:0.7;">'
-                f'{svg("chevron-right", 16, "#f9f7f4")}</span>'
+                f'{svg("chevron-right", 16, "#FCFCFD")}</span>'
                 if is_active else ""
             )
             # Render the visual HTML nav row (wrapped with horizontal padding)
@@ -97,29 +97,29 @@ def render_sidebar():
         # ── Bottom: Settings + User profile (fixed to bottom) ─────────────
         st.markdown(
             '<div style="position:fixed;bottom:0;width:15rem;'
-            'background:#221e1b;padding:0 0.75rem 1rem;z-index:20;">'
+            'background:#363F72;padding:0 0.75rem 1rem;z-index:20;">'
             # Settings row (same style as inactive nav)
             f'<div style="{NAV_INACTIVE_STYLE}cursor:pointer;">'
-            f'{svg("settings", 18, "rgba(224,217,209,0.6)")}'
+            f'{svg("settings", 18, "rgba(179,184,219,0.6)")}'
             '<span>Beállítások</span>'
             '</div>'
             # User profile
             '<div style="display:flex;align-items:center;gap:0.75rem;'
-            'padding:0.75rem 0.75rem 0.25rem;border-top:1px solid #37322f;'
+            'padding:0.75rem 0.75rem 0.25rem;border-top:1px solid #293056;'
             'margin-top:0.75rem;">'
             '<div style="width:32px;height:32px;border-radius:50%;'
-            'background:rgba(224,122,95,0.2);'
+            'background:rgba(78,91,166,0.2);'
             'display:flex;align-items:center;justify-content:center;'
-            'color:#e07a5f;font-size:0.54rem;font-weight:700;'
+            'color:#4E5BA6;font-size:0.54rem;font-weight:700;'
             'font-family:\'Space Grotesk\',sans-serif;flex-shrink:0;">SS</div>'
             '<div style="min-width:0;">'
-            '<div style="font-size:0.63rem;font-weight:500;color:#e0d9d1;'
+            '<div style="font-size:0.63rem;font-weight:500;color:#D5D9EB;'
             'line-height:1.2;white-space:nowrap;overflow:hidden;'
             'text-overflow:ellipsis;">SamanSport</div>'
-            '<div style="font-size:0.53rem;color:rgba(224,217,209,0.4);">Adminisztrátor</div>'
+            '<div style="font-size:0.53rem;color:rgba(179,184,219,0.4);">Adminisztrátor</div>'
             '</div>'
-            '<div style="margin-left:auto;flex-shrink:0;cursor:pointer;color:rgba(224,217,209,0.4);">'
-            + svg("log-out", 16, "rgba(224,217,209,0.4)") +
+            '<div style="margin-left:auto;flex-shrink:0;cursor:pointer;color:rgba(179,184,219,0.4);">'
+            + svg("log-out", 16, "rgba(179,184,219,0.4)") +
             '</div></div></div>',
             unsafe_allow_html=True,
         )

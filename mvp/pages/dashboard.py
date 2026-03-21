@@ -30,7 +30,7 @@ def render_dashboard():
     # ── KPI row ────────────────────────────────────────────────────────────────
     kpi_grid(
         kpi_card("Bruttó forgalom", f"{hu_thousands(df['Bruttó érték'].sum())} HUF",
-                 "dollar-sign", "rgba(231,76,60,0.1)", "#e74c3c",
+                 "dollar-sign", "rgba(78,91,166,0.1)", "#4E5BA6",
                  sub=f"{df['kelt'].dt.to_period('M').nunique()} aktív hónap",
                  tooltip="Összes bruttó értékesítés a kiválasztott időszakban (ÁFA-val)"),
         kpi_card("Értékesített mennyiség", f"{hu_thousands(df['Mennyiség'].sum())} db",
@@ -38,11 +38,11 @@ def render_dashboard():
                  sub=f"Nettó: {hu_thousands(df['Nettó érték'].sum())} HUF",
                  tooltip="Összes eladott tétel darabszáma a kiválasztott időszakban"),
         kpi_card("Átlagos bruttó ár", f"{hu_thousands(df['Bruttó ár'].mean())} HUF",
-                 "tag", "#f3f4f6", "#1c1c2e",
+                 "tag", "#F8F9FC", "#293056",
                  sub=f"Átl. nettó: {hu_thousands(df['Nettó ár'].mean())} HUF",
                  tooltip="Egy eladott tétel átlagos bruttó ára (ÁFA-val)"),
         kpi_card("Tranzakciók", f"{hu_thousands(len(df))}",
-                 "receipt", "rgba(231,76,60,0.06)", "#e74c3c",
+                 "receipt", "rgba(78,91,166,0.06)", "#4E5BA6",
                  sub=f"{df['kelt'].dt.year.nunique()} aktív év",
                  tooltip="Számlasorok száma a kiválasztott időszakban"),
     )

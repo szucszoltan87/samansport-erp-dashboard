@@ -60,4 +60,4 @@ No test suite or linter is configured yet.
 - **Concurrent sync prevention:** atomic `UPDATE ... RETURNING` locks in PL/pgSQL
 - **Environment config:** `.env` file in `mvp/` (see `.env.example` for required vars: Tharanis API credentials + Supabase keys)
 - **Edge Functions:** Deno runtime, JWT verification disabled in `supabase/config.toml`
-- **UI theme:** Charcoal and orange color scheme with custom SVG icons defined in app.py CSS
+- **UI theme:** Grey-blue color scheme (palette in `theme.py`) with custom SVG icons
