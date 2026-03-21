@@ -198,7 +198,7 @@ def _analytics_sales():
     st.download_button(
         "CSV letöltése",
         data=csv_bytes,
-        file_name=f"ertekesites_{fn_sku}_{meta.get('start', '')}.csv",
+        file_name=f"samansport_ertekesites_{fn_sku}_{meta.get('start', '')}_{meta.get('end', '')}.csv",
         mime="text/csv",
     )
 
@@ -282,7 +282,7 @@ def _analytics_movements():
         st.download_button(
             "CSV letöltése",
             data=csv,
-            file_name=f"mozgas_osszes_{meta_m.get('start','')}.csv",
+            file_name=f"samansport_mozgas_osszes_{meta_m.get('start', '')}_{meta_m.get('end', '')}.csv",
             mime="text/csv",
         )
 
