@@ -48,9 +48,12 @@ def render_dashboard():
     )
 
     # ── Period toggle for dashboard charts ────────────────────────────────────
+    _period_opts = ["Éves", "Havi", "Heti", "Napi"]
+    if "dash_period" not in st.session_state:
+        st.session_state["dash_period"] = "Havi"
     dash_period = st.radio(
-        "Periódus", ["Éves", "Havi", "Heti", "Napi"],
-        horizontal=True, key="dash_period", index=1,
+        "Periódus", _period_opts,
+        horizontal=True, key="dash_period",
     )
     df2 = df.copy()
     df2["Periódus"] = period_key(df2["kelt"], dash_period)
