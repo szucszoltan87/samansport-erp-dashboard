@@ -65,7 +65,6 @@ def main():
                 }
                 st.session_state.mozgas_df = None
                 st.session_state.last_mozgas_query = {}
-                st.rerun()
 
         _last      = st.session_state.last_query or {}
         _need_load = (
@@ -90,7 +89,6 @@ def main():
                 st.session_state.mozgas_df = None
                 st.session_state.last_mozgas_query = {}
                 st.session_state["_prod_opts_cache"] = build_product_opts(_df)
-                st.rerun()
 
     elif page == "analytics":
         # Auto-reload sales data when dates change on analytics page too
@@ -112,7 +110,6 @@ def main():
                 st.session_state.mozgas_df = None
                 st.session_state.last_mozgas_query = {}
                 st.session_state["_prod_opts_cache"] = build_product_opts(_df)
-                st.rerun()
 
     # ── Page routing ──────────────────────────────────────────────────────
     if page == "dashboard":
