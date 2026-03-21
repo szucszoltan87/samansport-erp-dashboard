@@ -12,7 +12,8 @@ import pandas as pd
 from datetime import timedelta
 
 import tharanis_client as api
-from config import CSV_PATH, ALL_PRODUCTS_LABEL, LOADER_ICONS, svg
+from config import CSV_PATH, ALL_PRODUCTS_LABEL
+from theme import LOADER_ICONS, svg
 
 logger = logging.getLogger(__name__)
 

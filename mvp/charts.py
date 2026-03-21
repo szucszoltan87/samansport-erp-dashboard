@@ -6,7 +6,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 
-from config import C
+from theme import C
 
 
 def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:

@@ -3,7 +3,7 @@ Global CSS styles for SamanSport ERP Dashboard.
 """
 
 import streamlit as st
-from config import SIDEBAR_WIDTH
+from theme import SIDEBAR_WIDTH
 
 
 def inject_css() -> None:

@@ -6,7 +6,7 @@ import streamlit as st
 from datetime import datetime
 
 import tharanis_client as api
-from config import svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE
+from theme import svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE
 
 
 def render_sidebar():
