@@ -3,6 +3,7 @@ Plotly chart builders for SamanSport ERP Dashboard.
 """
 
 import copy
+from datetime import date
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -16,6 +17,22 @@ def _base_layout(**overrides) -> dict:
     layout = copy.deepcopy(PLOTLY_BASE_LAYOUT)
     layout.update(overrides)
     return layout
+
+
+def _smart_xaxis(n_points: int) -> dict:
+    """Return xaxis overrides for readable, non-overlapping tick labels.
+
+    Uses the number of data points to decide tick density:
+    - <=7 points (daily short range): show all ticks
+    - <=15 points (weekly / short-medium): show ~7-10 ticks
+    - >15 points (monthly / long range): limit to ~6-8 ticks
+    """
+    if n_points <= 7:
+        return dict(tickangle=0)
+    if n_points <= 15:
+        return dict(nticks=min(n_points, 10), tickangle=-30)
+    # Many points – limit to avoid crowding
+    return dict(nticks=8, tickangle=-30)
 
 
 def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
@@ -37,12 +54,15 @@ def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
     st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
 
 
-def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
+def chart_style(fig: go.Figure, height: int = 380, title: str = "",
+                n_xpoints: int = 0) -> None:
+    xaxis_extra = _smart_xaxis(n_xpoints) if n_xpoints > 0 else {}
     fig.update_layout(
         **_base_layout(
             title=dict(text=title, font=dict(size=13, color="#374151", family=FONT_FAMILY), x=0) if title else dict(text=""),
             height=height,
             margin=dict(l=0, r=0, t=40 if title else 10, b=0),
+            xaxis={**PLOTLY_BASE_LAYOUT.get("xaxis", {}), **xaxis_extra},
         ),
     )
     st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
@@ -76,7 +96,7 @@ def revenue_trend_chart(monthly: pd.DataFrame) -> None:
         fill="tozeroy", fillcolor="rgba(78,91,166,0.08)",
         hovertemplate="%{x}<br><b>%{y:,.0f} HUF</b><extra></extra>",
     ))
-    chart_style(fig, height=260)
+    chart_style(fig, height=260, n_xpoints=len(monthly))
 
 
 def quantity_bar_chart(mq: pd.DataFrame) -> None:
@@ -88,7 +108,7 @@ def quantity_bar_chart(mq: pd.DataFrame) -> None:
         marker=dict(color=C["charcoal"], opacity=0.8),
         hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
     ))
-    chart_style(fig, height=230)
+    chart_style(fig, height=230, n_xpoints=len(mq))
 
 
 def top10_products_chart(grp: pd.DataFrame) -> None:
@@ -144,7 +164,7 @@ def metric_chart(grouped: pd.DataFrame, col_name: str, metric: str,
             hovertemplate=ht,
         ))
     fig.update_layout(yaxis_title=ytitle)
-    chart_style(fig, height=380)
+    chart_style(fig, height=380, n_xpoints=len(grouped))
 
 
 def movements_chart(all_p: list, be_v: list, ki_v: list,
@@ -166,4 +186,4 @@ def movements_chart(all_p: list, be_v: list, ki_v: list,
         fig.add_trace(go.Scatter(x=all_p, y=ki_v, name="Kiadó",
                                  mode="lines+markers", line=dict(color=C["charcoal"], width=2.5),
                                  marker=dict(size=6)))
-    chart_style(fig, height=380)
+    chart_style(fig, height=380, n_xpoints=len(all_p))
