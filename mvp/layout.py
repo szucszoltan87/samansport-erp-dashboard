@@ -23,7 +23,7 @@ def render_sidebar():
             '<span style="color:#e07a5f;">&#9632;</span> '
             'Saman<span style="color:rgba(224,217,209,0.6);">Sport</span></div>'
             '<div style="font-family:\'DM Sans\',sans-serif;font-size:0.63rem;'
-            'color:rgba(224,217,209,0.4);margin-top:0.25rem;">ERP Analytics</div>'
+            'color:rgba(224,217,209,0.4);margin-top:0.25rem;">ERP Elemzések</div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -62,7 +62,7 @@ def render_sidebar():
 
         # ── Navigation items (PulseERP style) ─────────────────────────────
         _pages = [
-            ("dashboard", "layout-dashboard", "Dashboard"),
+            ("dashboard", "layout-dashboard", "Áttekintés"),
             ("analytics", "chart-column",     "Analitika"),
         ]
         for page_id, icon_name, label in _pages:
@@ -116,7 +116,7 @@ def render_sidebar():
             '<div style="font-size:0.63rem;font-weight:500;color:#e0d9d1;'
             'line-height:1.2;white-space:nowrap;overflow:hidden;'
             'text-overflow:ellipsis;">SamanSport</div>'
-            '<div style="font-size:0.53rem;color:rgba(224,217,209,0.4);">Admin</div>'
+            '<div style="font-size:0.53rem;color:rgba(224,217,209,0.4);">Adminisztrátor</div>'
             '</div>'
             '<div style="margin-left:auto;flex-shrink:0;cursor:pointer;color:rgba(224,217,209,0.4);">'
             + svg("log-out", 16, "rgba(224,217,209,0.4)") +

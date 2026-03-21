@@ -163,9 +163,9 @@ class SeasonalityAnalyzer:
 
             # Convert month numbers to names
             month_names = {
-                1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr',
-                5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Aug',
-                9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+                1: 'jan.', 2: 'febr.', 3: 'márc.', 4: 'ápr.',
+                5: 'máj.', 6: 'jún.', 7: 'júl.', 8: 'aug.',
+                9: 'szept.', 10: 'okt.', 11: 'nov.', 12: 'dec.'
             }
 
             peak_month_names = ', '.join([month_names[m] for m in peak_months[:3]])  # Top 3 peaks
