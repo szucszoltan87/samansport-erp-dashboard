@@ -164,13 +164,18 @@ def render_header():
         "Tavaly":         (_today.replace(year=_today.year - 1, month=1, day=1),
                            _today.replace(year=_today.year - 1, month=12, day=31)),
     }
+
+    def _set_range(start, end):
+        st.session_state["start_date"] = start
+        st.session_state["end_date"] = end
+
     qcols = st.columns(len(_ranges))
     for col, (label, (r_start, r_end)) in zip(qcols, _ranges.items()):
         with col:
-            if st.button(label, key=f"qr_{label}", use_container_width=True):
-                st.session_state["start_date"] = r_start
-                st.session_state["end_date"] = r_end
-                st.rerun()
+            st.button(
+                label, key=f"qr_{label}", use_container_width=True,
+                on_click=_set_range, args=(r_start, r_end),
+            )
 
     # ── Date pickers ──────────────────────────────────────────────────────
     dc1, dc2, dc3 = st.columns([5, 5, 1])
