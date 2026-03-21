@@ -2,11 +2,20 @@
 Plotly chart builders for SamanSport ERP Dashboard.
 """
 
+import copy
+
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 
-from theme import C
+from theme import C, FONT_FAMILY, PLOTLY_BASE_LAYOUT, PLOTLY_NO_MODEBAR
+
+
+def _base_layout(**overrides) -> dict:
+    """Return a deep copy of PLOTLY_BASE_LAYOUT merged with overrides."""
+    layout = copy.deepcopy(PLOTLY_BASE_LAYOUT)
+    layout.update(overrides)
+    return layout
 
 
 def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
@@ -15,40 +24,28 @@ def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
         text="Nincs adat",
         xref="paper", yref="paper", x=0.5, y=0.5,
         showarrow=False,
-        font=dict(size=18, color="#9ca3af", family="Inter"),
+        font=dict(size=18, color="#9ca3af", family=FONT_FAMILY),
     )
     fig.update_layout(
-        paper_bgcolor="white", plot_bgcolor="#fafafa", height=height,
-        margin=dict(l=0, r=0, t=10, b=0),
-        xaxis=dict(visible=False), yaxis=dict(visible=False),
+        **_base_layout(
+            height=height,
+            margin=dict(l=0, r=0, t=10, b=0),
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+        ),
     )
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
 
 
 def chart_style(fig: go.Figure, height: int = 380, title: str = "") -> None:
     fig.update_layout(
-        title=dict(text=title, font=dict(size=13, color="#374151", family="Inter"), x=0) if title else dict(text=""),
-        paper_bgcolor="white",
-        plot_bgcolor="#fafafa",
-        height=height,
-        margin=dict(l=0, r=0, t=40 if title else 10, b=0),
-        font=dict(color="#374151", size=11, family="Inter"),
-        xaxis=dict(
-            gridcolor="#f0f0f0", linecolor="#e5e7eb",
-            tickfont=dict(color="#9ca3af", size=11), tickangle=-30,
+        **_base_layout(
+            title=dict(text=title, font=dict(size=13, color="#374151", family=FONT_FAMILY), x=0) if title else dict(text=""),
+            height=height,
+            margin=dict(l=0, r=0, t=40 if title else 10, b=0),
         ),
-        yaxis=dict(
-            gridcolor="#f0f0f0", linecolor="#e5e7eb",
-            tickfont=dict(color="#9ca3af", size=11), zeroline=False,
-        ),
-        showlegend=True,
-        legend=dict(
-            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-            font=dict(size=13, family="Inter", color="#374151"), bgcolor="rgba(0,0,0,0)",
-        ),
-        hovermode="x unified",
     )
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
 
 
 def hbar_chart(labels, values, color: str, height: int = 300) -> None:
@@ -58,13 +55,13 @@ def hbar_chart(labels, values, color: str, height: int = 300) -> None:
         hovertemplate="%{y}<br><b>%{x:,.0f}</b><extra></extra>",
     ))
     fig.update_layout(
-        paper_bgcolor="white", plot_bgcolor="#f9fafb",
-        height=height, margin=dict(l=0, r=16, t=0, b=0),
-        font=dict(color="#374151", size=11, family="Inter"),
-        xaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#9ca3af", size=10)),
-        yaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#374151", size=10), automargin=True),
+        **_base_layout(
+            height=height,
+            margin=dict(l=0, r=16, t=0, b=0),
+            yaxis=dict(gridcolor="#f1f5f9", tickfont=dict(color="#374151", size=10), automargin=True),
+        ),
     )
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
 
 
 def revenue_trend_chart(monthly: pd.DataFrame) -> None:
@@ -88,7 +85,7 @@ def quantity_bar_chart(mq: pd.DataFrame) -> None:
         return _empty_chart_placeholder(go.Figure(), height=230)
     fig = go.Figure(go.Bar(
         x=mq["Periódus"], y=mq["Mennyiség"],
-        marker=dict(color="#2d2d42", opacity=0.8),
+        marker=dict(color=C["charcoal"], opacity=0.8),
         hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>",
     ))
     chart_style(fig, height=230)
@@ -110,19 +107,19 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
         cliponaxis=False,
     ))
     fig.update_layout(
-        paper_bgcolor="white", plot_bgcolor="#f9fafb",
-        height=max(400, len(grp) * 42),
-        margin=dict(l=0, r=20, t=0, b=30),
-        font=dict(color="#374151", size=11, family="Inter"),
-        xaxis=dict(range=[0, max_val * 1.35], gridcolor="#f1f5f9",
-                   tickfont=dict(color="#9ca3af", size=10),
-                   tickformat=",",
-                   title=dict(text="Bruttó forgalom (HUF)", font=dict(size=11, color="#9ca3af"))),
-        yaxis=dict(type="category", gridcolor="#f1f5f9",
-                   tickfont=dict(color="#374151", size=10),
-                   automargin=True, title=None),
+        **_base_layout(
+            height=max(400, len(grp) * 42),
+            margin=dict(l=0, r=20, t=0, b=30),
+            xaxis=dict(range=[0, max_val * 1.35], gridcolor="#f1f5f9",
+                       tickfont=dict(color="#9ca3af", size=10),
+                       tickformat=",",
+                       title=dict(text="Bruttó forgalom (HUF)", font=dict(size=11, color="#9ca3af"))),
+            yaxis=dict(type="category", gridcolor="#f1f5f9",
+                       tickfont=dict(color="#374151", size=10),
+                       automargin=True, title=None),
+        ),
     )
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
 
 
 def metric_chart(grouped: pd.DataFrame, col_name: str, metric: str,
@@ -159,7 +156,7 @@ def movements_chart(all_p: list, be_v: list, ki_v: list,
     if chart_type == "Oszlop":
         fig.add_trace(go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=C["coral"],
                              hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
-        fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color="#2d2d42",
+        fig.add_trace(go.Bar(x=all_p, y=ki_v, name="Kiadó",    marker_color=C["charcoal"],
                              hovertemplate="%{x}<br><b>%{y:,.0f} db</b><extra></extra>"))
         fig.update_layout(barmode="group")
     else:
@@ -167,6 +164,6 @@ def movements_chart(all_p: list, be_v: list, ki_v: list,
                                  mode="lines+markers", line=dict(color=C["coral"], width=2.5),
                                  marker=dict(size=6)))
         fig.add_trace(go.Scatter(x=all_p, y=ki_v, name="Kiadó",
-                                 mode="lines+markers", line=dict(color="#2d2d42", width=2.5),
+                                 mode="lines+markers", line=dict(color=C["charcoal"], width=2.5),
                                  marker=dict(size=6)))
     chart_style(fig, height=380)
