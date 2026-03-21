@@ -96,6 +96,7 @@ PLOTLY_BASE_LAYOUT = dict(
     paper_bgcolor="white",
     plot_bgcolor="#fafafa",
     font=dict(color="#374151", size=11, family=FONT_FAMILY),
+    separators=", ",          # Hungarian: comma decimal, space thousands
     hovermode="x unified",
     showlegend=True,
     legend=dict(
@@ -110,6 +111,7 @@ PLOTLY_BASE_LAYOUT = dict(
     yaxis=dict(
         gridcolor="#f0f0f0", linecolor="#e5e7eb",
         tickfont=dict(color="#9ca3af", size=11), zeroline=False,
+        separatethousands=True,
     ),
 )
 

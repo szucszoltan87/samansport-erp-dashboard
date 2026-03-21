@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 def period_key(series: pd.Series, period: str) -> pd.Series:
     if period == "Havi":
-        return series.dt.to_period("M").astype(str)
+        return series.dt.strftime("%Y.%m")
     if period == "Heti":
         return series.dt.to_period("W").astype(str)
-    return series.dt.strftime("%Y-%m-%d")
+    return series.dt.strftime("%Y.%m.%d")
 
 
 def find_sku_col(df: pd.DataFrame):

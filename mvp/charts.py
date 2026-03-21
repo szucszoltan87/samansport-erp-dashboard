@@ -8,7 +8,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 
-from theme import C, FONT_FAMILY, PLOTLY_BASE_LAYOUT, PLOTLY_NO_MODEBAR
+from theme import C, FONT_FAMILY, PLOTLY_BASE_LAYOUT, PLOTLY_NO_MODEBAR, hu_thousands
 
 
 def _base_layout(**overrides) -> dict:
@@ -99,7 +99,7 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
     fig = go.Figure(go.Bar(
         x=grp["Forgalom"], y=grp["Label"].tolist(), orientation="h",
         marker=dict(color=C["coral"], opacity=0.85),
-        text=grp.apply(lambda r: f"  {r['Forgalom']:,.0f} Ft  ({r['Pct']:.1f}%)", axis=1),
+        text=grp.apply(lambda r: f"  {hu_thousands(r['Forgalom'])} Ft  ({r['Pct']:.1f}%)", axis=1),
         textposition="outside",
         textfont=dict(size=11, color="#374151"),
         hovertemplate="%{y}<br><b>%{x:,.0f} Ft</b><br>Arány: %{customdata:.1f}%<extra></extra>",
@@ -112,7 +112,7 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
             margin=dict(l=0, r=20, t=0, b=30),
             xaxis=dict(range=[0, max_val * 1.35], gridcolor="#f1f5f9",
                        tickfont=dict(color="#9ca3af", size=10),
-                       tickformat=",",
+                       tickformat=",.0f", separatethousands=True,
                        title=dict(text="Bruttó forgalom (HUF)", font=dict(size=11, color="#9ca3af"))),
             yaxis=dict(type="category", gridcolor="#f1f5f9",
                        tickfont=dict(color="#374151", size=10),

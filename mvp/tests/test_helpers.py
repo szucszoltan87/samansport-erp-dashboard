@@ -20,7 +20,7 @@ class TestPeriodKey:
 
     def test_monthly(self, date_series):
         result = period_key(date_series, "Havi")
-        assert list(result) == ["2025-01", "2025-01", "2025-02", "2025-03"]
+        assert list(result) == ["2025.01", "2025.01", "2025.02", "2025.03"]
 
     def test_weekly(self, date_series):
         result = period_key(date_series, "Heti")
@@ -29,12 +29,12 @@ class TestPeriodKey:
 
     def test_daily(self, date_series):
         result = period_key(date_series, "Napi")
-        assert list(result) == ["2025-01-05", "2025-01-15", "2025-02-10", "2025-03-20"]
+        assert list(result) == ["2025.01.05", "2025.01.15", "2025.02.10", "2025.03.20"]
 
     def test_daily_is_default(self, date_series):
         """Any unrecognized period string falls through to daily format."""
         result = period_key(date_series, "Éves")
-        assert list(result) == ["2025-01-05", "2025-01-15", "2025-02-10", "2025-03-20"]
+        assert list(result) == ["2025.01.05", "2025.01.15", "2025.02.10", "2025.03.20"]
 
     def test_empty_series(self):
         result = period_key(pd.Series(dtype="datetime64[ns]"), "Havi")
@@ -43,7 +43,7 @@ class TestPeriodKey:
     def test_single_date(self):
         s = pd.to_datetime(pd.Series(["2025-06-15"]))
         result = period_key(s, "Havi")
-        assert list(result) == ["2025-06"]
+        assert list(result) == ["2025.06"]
 
 
 # ── find_sku_col ─────────────────────────────────────────────────────────────
