@@ -199,11 +199,11 @@ def render_header():
         unsafe_allow_html=True,
     )
 
-    # ── Quick date range buttons ─────────────────────────────────────────
+    # ── Quick date range pill buttons ────────────────────────────────────
     _ranges = {
         "Ma":             (_today, _today),
-        "Utolsó 7 nap":  (_today - timedelta(days=7), _today),
-        "Utolsó 30 nap": (_today - timedelta(days=30), _today),
+        "7 nap":          (_today - timedelta(days=7), _today),
+        "30 nap":         (_today - timedelta(days=30), _today),
         "Idén":           (_today.replace(month=1, day=1), _today),
         "Tavaly":         (_today.replace(year=_today.year - 1, month=1, day=1),
                            _today.replace(year=_today.year - 1, month=12, day=31)),
@@ -213,8 +213,8 @@ def render_header():
         st.session_state["start_date"] = start
         st.session_state["end_date"] = end
 
-    qcols = st.columns(len(_ranges))
-    for col, (label, (r_start, r_end)) in zip(qcols, _ranges.items()):
+    pill_cols = st.columns([1] * len(_ranges) + [max(1, 8 - len(_ranges))])
+    for col, (label, (r_start, r_end)) in zip(pill_cols, _ranges.items()):
         with col:
             st.button(
                 label, key=f"qr_{label}", use_container_width=True,

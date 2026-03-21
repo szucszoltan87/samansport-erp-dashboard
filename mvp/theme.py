@@ -529,22 +529,28 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     border-color: #3E4784 !important;
 }}
 
-/* ── Quick date range buttons ── */
+/* ── Quick date range pill buttons ── */
 .main div.stButton:has(button[key^="qr_"]) > button {{
     background: #F8F9FC !important;
-    border: 1px solid #EAECF5 !important;
-    color: #374151 !important;
-    padding: 0.15rem 0.5rem !important;
-    font-size: 0.58rem !important;
-    font-weight: 500 !important;
+    border: 1px solid #D5D9EB !important;
+    color: #4E5BA6 !important;
+    padding: 0.15rem 0.6rem !important;
+    font-size: 0.55rem !important;
+    font-weight: 600 !important;
     min-height: 0 !important;
-    border-radius: 6px !important;
-    line-height: 1.3 !important;
+    border-radius: 9999px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.01em !important;
+    transition: all 0.15s ease !important;
+    box-shadow: none !important;
+    height: 1.5rem !important;
 }}
 .main div.stButton:has(button[key^="qr_"]) > button:hover {{
-    background: #EAECF5 !important;
-    border-color: #D5D9EB !important;
-    color: #111827 !important;
+    background: #4E5BA6 !important;
+    border-color: #4E5BA6 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(78,91,166,0.2) !important;
 }}
 
 /* ── Misc ── */
