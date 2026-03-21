@@ -235,8 +235,8 @@ class SeasonalityAnalyzer:
             'Egyedi termékek': self.sales['Cikkszám'].nunique(),
             'Összes árbevétel': self.sales['Árbevétel'].sum(),
             'Átlag havi árbevétel': self.sales.groupby('Év-Hónap')['Árbevétel'].sum().mean(),
-            'Időszak kezdete': self.sales['Kelt'].min().strftime('%Y-%m-%d'),
-            'Időszak vége': self.sales['Kelt'].max().strftime('%Y-%m-%d'),
+            'Időszak kezdete': self.sales['Kelt'].min().strftime('%Y.%m.%d'),
+            'Időszak vége': self.sales['Kelt'].max().strftime('%Y.%m.%d'),
         }
 
 

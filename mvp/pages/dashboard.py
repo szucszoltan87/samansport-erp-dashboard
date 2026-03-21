@@ -10,6 +10,7 @@ from helpers import (
     find_sku_col, find_name_col, load_product_master,
 )
 from charts import revenue_trend_chart, quantity_bar_chart, top10_products_chart
+from theme import hu_thousands
 
 
 def render_dashboard():
@@ -27,16 +28,16 @@ def render_dashboard():
 
     # ── KPI row ────────────────────────────────────────────────────────────────
     kpi_grid(
-        kpi_card("Bruttó forgalom", f"{df['Bruttó érték'].sum():,.0f} HUF",
+        kpi_card("Bruttó forgalom", f"{hu_thousands(df['Bruttó érték'].sum())} HUF",
                  "dollar-sign", "rgba(231,76,60,0.1)", "#e74c3c",
                  sub=f"{df['kelt'].dt.to_period('M').nunique()} aktív hónap"),
-        kpi_card("Értékesített mennyiség", f"{df['Mennyiség'].sum():,.0f} db",
+        kpi_card("Értékesített mennyiség", f"{hu_thousands(df['Mennyiség'].sum())} db",
                  "package", "#fef9c3", "#d97706",
-                 sub=f"Nettó: {df['Nettó érték'].sum():,.0f} HUF"),
-        kpi_card("Átlagos bruttó ár", f"{df['Bruttó ár'].mean():,.0f} HUF",
+                 sub=f"Nettó: {hu_thousands(df['Nettó érték'].sum())} HUF"),
+        kpi_card("Átlagos bruttó ár", f"{hu_thousands(df['Bruttó ár'].mean())} HUF",
                  "tag", "#f3f4f6", "#1c1c2e",
-                 sub=f"Átl. nettó: {df['Nettó ár'].mean():,.0f} HUF"),
-        kpi_card("Tranzakciók", f"{len(df):,}",
+                 sub=f"Átl. nettó: {hu_thousands(df['Nettó ár'].mean())} HUF"),
+        kpi_card("Tranzakciók", f"{hu_thousands(len(df))}",
                  "receipt", "rgba(231,76,60,0.06)", "#e74c3c",
                  sub=f"{df['kelt'].dt.year.nunique()} aktív év"),
     )
@@ -48,13 +49,13 @@ def render_dashboard():
     )
     df2 = df.copy()
     if dash_period == "Napi":
-        df2["Periódus"] = df2["kelt"].dt.strftime("%Y-%m-%d")
+        df2["Periódus"] = df2["kelt"].dt.strftime("%Y.%m.%d")
     elif dash_period == "Heti":
         df2["Periódus"] = df2["kelt"].dt.to_period("W").astype(str)
     elif dash_period == "Éves":
         df2["Periódus"] = df2["kelt"].dt.to_period("Y").astype(str)
     else:
-        df2["Periódus"] = df2["kelt"].dt.to_period("M").astype(str)
+        df2["Periódus"] = df2["kelt"].dt.strftime("%Y.%m")
 
     # ── Revenue trend ──────────────────────────────────────────────────────────
     section_header("Bruttó forgalom", f"{dash_period} bontás  ·  Értékesítési trend az időszakra", "trending-up")

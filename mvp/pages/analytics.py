@@ -11,6 +11,7 @@ from config import (
     PERIOD_OPTIONS, METRIC_CFG,
 )
 from charts import metric_chart, movements_chart
+from theme import hu_thousands
 from helpers import (
     period_key, find_sku_col, find_name_col, load_product_master,
     build_product_opts, section_header, empty_state, funny_loader,
@@ -151,21 +152,21 @@ def _analytics_sales():
 
     # ── Summary metrics (always reflect current filter/product) ──────────────
     m1, m2, m3, m4, m5 = st.columns(5)
-    with m1: st.metric("Összes mennyiség",  f"{df['Mennyiség'].sum():,.0f} db")
-    with m2: st.metric("Bruttó forgalom",   f"{df['Bruttó érték'].sum():,.0f} HUF")
-    with m3: st.metric("Nettó forgalom",    f"{df['Nettó érték'].sum():,.0f} HUF")
-    with m4: st.metric("Átl. bruttó ár",    f"{df['Bruttó ár'].mean():,.0f} HUF")
+    with m1: st.metric("Összes mennyiség",  f"{hu_thousands(df['Mennyiség'].sum())} db")
+    with m2: st.metric("Bruttó forgalom",   f"{hu_thousands(df['Bruttó érték'].sum())} HUF")
+    with m3: st.metric("Nettó forgalom",    f"{hu_thousands(df['Nettó érték'].sum())} HUF")
+    with m4: st.metric("Átl. bruttó ár",    f"{hu_thousands(df['Bruttó ár'].mean())} HUF")
     with m5: st.metric("Aktív periódusok",  f"{grouped['Periódus'].nunique()}")
 
     # ── Full data table ───────────────────────────────────────────────────────
     st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
     section_header(
         "Teljes értékesítési adatok",
-        f"{display_label}  ·  {len(df):,} tranzakció",
+        f"{display_label}  ·  {hu_thousands(len(df))} tranzakció",
         "file-text",
     )
     full = df.copy()
-    full["kelt"] = full["kelt"].dt.strftime("%Y-%m-%d")
+    full["kelt"] = full["kelt"].dt.strftime("%Y.%m.%d")
     # Add Terméknév from product master or existing name column
     _sc_full = find_sku_col(full)
     _nc_full = find_name_col(full)
@@ -189,7 +190,7 @@ def _analytics_sales():
         )
         _start = (_page_num - 1) * _PAGE_SIZE
         _end = min(_start + _PAGE_SIZE, _total_rows)
-        st.caption(f"{_start + 1}–{_end} / {_total_rows:,} sor")
+        st.caption(f"{hu_thousands(_start + 1)}–{hu_thousands(_end)} / {hu_thousands(_total_rows)} sor")
         st.dataframe(full.iloc[_start:_end].reset_index(drop=True), use_container_width=True, height=400)
     else:
         st.dataframe(full.reset_index(drop=True), use_container_width=True, height=400)
@@ -256,15 +257,17 @@ def _analytics_movements():
     total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
     total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
     s1, s2, s3, s4 = st.columns(4)
-    with s1: st.metric("Összes beérkező", f"{total_be:,.0f} db")
-    with s2: st.metric("Összes kiadó",    f"{total_ki:,.0f} db")
-    with s3: st.metric("Nettó mozgás",    f"{total_be - total_ki:+,.0f} db")
+    _net = total_be - total_ki
+    _net_sign = "+" if _net > 0 else ""
+    with s1: st.metric("Összes beérkező", f"{hu_thousands(total_be)} db")
+    with s2: st.metric("Összes kiadó",    f"{hu_thousands(total_ki)} db")
+    with s3: st.metric("Nettó mozgás",    f"{_net_sign}{hu_thousands(_net)} db")
     with s4: st.metric("Mozgástípusok",   f"{mdf['Mozgástípus'].nunique()}")
 
     st.markdown('<div class="hline"></div>', unsafe_allow_html=True)
     with st.expander("Mozgás adattáblázat"):
         show_m = mdf.copy()
-        show_m["kelt"] = show_m["kelt"].dt.strftime("%Y-%m-%d")
+        show_m["kelt"] = show_m["kelt"].dt.strftime("%Y.%m.%d")
         _m_total = len(show_m)
         if _m_total > _PAGE_SIZE:
             _m_pages = (_m_total + _PAGE_SIZE - 1) // _PAGE_SIZE
@@ -274,7 +277,7 @@ def _analytics_movements():
             )
             _m_start = (_m_page - 1) * _PAGE_SIZE
             _m_end = min(_m_start + _PAGE_SIZE, _m_total)
-            st.caption(f"{_m_start + 1}–{_m_end} / {_m_total:,} sor")
+            st.caption(f"{hu_thousands(_m_start + 1)}–{hu_thousands(_m_end)} / {hu_thousands(_m_total)} sor")
             st.dataframe(show_m.iloc[_m_start:_m_end].reset_index(drop=True), use_container_width=True, height=300)
         else:
             st.dataframe(show_m.reset_index(drop=True), use_container_width=True, height=300)
