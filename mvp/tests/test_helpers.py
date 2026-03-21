@@ -113,8 +113,9 @@ class TestFindNameCol:
 
 
 class TestLoadWarn:
-    def test_short_period_no_warning(self):
-        assert load_warn(date(2025, 1, 1), date(2025, 6, 1)) == ""
+    def test_short_period_default_message(self):
+        result = load_warn(date(2025, 1, 1), date(2025, 6, 1))
+        assert "első betöltése" in result
 
     def test_exactly_two_years_triggers_warning(self):
         """730 days > 365*2, so this triggers the 2-year warning."""
@@ -132,7 +133,9 @@ class TestLoadWarn:
         assert "kávé" in result or "☕" in result
 
     def test_same_day(self):
-        assert load_warn(date(2025, 1, 1), date(2025, 1, 1)) == ""
+        result = load_warn(date(2025, 1, 1), date(2025, 1, 1))
+        assert "első betöltése" in result
 
     def test_one_day(self):
-        assert load_warn(date(2025, 1, 1), date(2025, 1, 2)) == ""
+        result = load_warn(date(2025, 1, 1), date(2025, 1, 2))
+        assert "első betöltése" in result

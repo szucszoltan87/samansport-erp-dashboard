@@ -224,7 +224,7 @@ def load_warn(start, end) -> str:
             "2 évnél hosszabb időszakot kértél. "
             "Az adatok betöltése pár másodpercet vehet igénybe."
         )
-    return ""
+    return "Az adatok első betöltése folyamatban, ez eltarthat néhány másodpercig..."
 
 
 # ── Loading overlay ──────────────────────────────────────────────────────────
