@@ -30,6 +30,7 @@ inject_css()
 # ── Session state ─────────────────────────────────────────────────────────────
 _init_today = datetime.now().date()
 for _k, _v in [
+    ("sidebar_collapsed", False),
     ("page",              "dashboard"),
     ("sales_df",          None),
     ("mozgas_df",         None),

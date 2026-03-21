@@ -39,6 +39,7 @@ C = {
 
 # ── Sidebar width ─────────────────────────────────────────────────────────────
 SIDEBAR_WIDTH = "15rem"
+SIDEBAR_COLLAPSED_WIDTH = "4.5rem"
 
 # ── Loader icons ──────────────────────────────────────────────────────────────
 LOADER_ICONS = ["📦", "🗂️", "📊", "🏷️", "🔄"]
@@ -73,6 +74,8 @@ ICONS = {
     "settings":     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     "log-out":      '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
     "user":         '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "panel-left-close": '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
+    "panel-left-open":  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
 }
 
 
@@ -182,6 +185,7 @@ section[data-testid="stSidebar"] {{
     width: {_sb_w} !important;
     min-width: {_sb_w} !important;
     max-width: {_sb_w} !important;
+    transition: width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease;
 }}
 section[data-testid="stSidebar"] > div {{
     background: #363F72 !important;
@@ -190,6 +194,7 @@ section[data-testid="stSidebar"] > div {{
     width: {_sb_w} !important;
     overflow: hidden !important;
     height: 100vh !important;
+    transition: width 0.2s ease;
 }}
 /* Hide EVERY native sidebar chrome button */
 section[data-testid="stSidebar"] [data-testid*="Collapse"],
@@ -210,8 +215,33 @@ section[data-testid="stSidebar"] > div > button {{
 [data-testid="stSidebar"] .stMarkdown {{ margin: 0 !important; }}
 [data-testid="stSidebar"] .stMarkdown p {{ margin: 0 !important; }}
 
+/* ── Sidebar toggle button: overlaid on the toggle icon area ── */
+.sb-toggle-icon {{
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 4px;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+}}
+.sb-toggle-icon:hover {{ background: rgba(255,255,255,0.08); }}
+[data-testid="stSidebar"] div.stButton:has(button[key="sb_toggle"]) {{
+    margin-top: -2rem !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    position: relative;
+    z-index: 15;
+    height: 1.8rem !important;
+}}
+[data-testid="stSidebar"] div.stButton:has(button[key="sb_toggle"]) > button {{
+    width: 2rem !important;
+    height: 1.8rem !important;
+    margin-left: auto !important;
+    margin-right: 0.75rem !important;
+}}
+
 /* ── Sidebar nav buttons: transparent, overlaid on HTML nav rows ── */
-[data-testid="stSidebar"] div.stButton {{
+[data-testid="stSidebar"] div.stButton:not(:has(button[key="sb_toggle"])) {{
     margin-top: -2.1rem !important;
     margin-bottom: 0 !important;
     padding: 0 0.75rem !important;
