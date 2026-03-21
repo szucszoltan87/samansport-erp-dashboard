@@ -62,7 +62,7 @@ def render_sidebar():
 
         # ── Navigation items (PulseERP style) ─────────────────────────────
         _pages = [
-            ("dashboard", "layout-dashboard", "Áttekintés"),
+            ("dashboard", "layout-dashboard", "Dashboard"),
             ("analytics", "chart-column",     "Analitika"),
         ]
         for page_id, icon_name, label in _pages:
