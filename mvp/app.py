@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import datetime
 
 from config import ALL_PRODUCTS_LABEL
-from styles import inject_css
+from theme import inject_css
 from layout import render_sidebar, render_header
 from helpers import (
     find_sku_col, find_name_col, load_product_master, build_product_opts,
