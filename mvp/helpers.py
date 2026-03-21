@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 # ── Data helpers ──────────────────────────────────────────────────────────────
 
 def period_key(series: pd.Series, period: str) -> pd.Series:
+    if period == "Éves":
+        return series.dt.to_period("Y").astype(str)
     if period == "Havi":
         return series.dt.strftime("%Y.%m")
     if period == "Heti":

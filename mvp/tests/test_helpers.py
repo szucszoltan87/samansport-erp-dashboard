@@ -31,9 +31,13 @@ class TestPeriodKey:
         result = period_key(date_series, "Napi")
         assert list(result) == ["2025.01.05", "2025.01.15", "2025.02.10", "2025.03.20"]
 
+    def test_yearly(self, date_series):
+        result = period_key(date_series, "Éves")
+        assert list(result) == ["2025", "2025", "2025", "2025"]
+
     def test_daily_is_default(self, date_series):
         """Any unrecognized period string falls through to daily format."""
-        result = period_key(date_series, "Éves")
+        result = period_key(date_series, "Egyéb")
         assert list(result) == ["2025.01.05", "2025.01.15", "2025.02.10", "2025.03.20"]
 
     def test_empty_series(self):

@@ -8,6 +8,7 @@ import pandas as pd
 from helpers import (
     empty_state, kpi_card, kpi_grid, section_header,
     find_sku_col, find_name_col, load_product_master,
+    period_key,
 )
 from charts import revenue_trend_chart, quantity_bar_chart, top10_products_chart
 from theme import hu_thousands
@@ -52,14 +53,7 @@ def render_dashboard():
         horizontal=True, key="dash_period", index=1,
     )
     df2 = df.copy()
-    if dash_period == "Napi":
-        df2["Periódus"] = df2["kelt"].dt.strftime("%Y.%m.%d")
-    elif dash_period == "Heti":
-        df2["Periódus"] = df2["kelt"].dt.to_period("W").astype(str)
-    elif dash_period == "Éves":
-        df2["Periódus"] = df2["kelt"].dt.to_period("Y").astype(str)
-    else:
-        df2["Periódus"] = df2["kelt"].dt.strftime("%Y.%m")
+    df2["Periódus"] = period_key(df2["kelt"], dash_period)
 
     # ── Revenue trend ──────────────────────────────────────────────────────────
     section_header("Bruttó forgalom", f"{dash_period} bontás  ·  Értékesítési trend az időszakra", "trending-up")
