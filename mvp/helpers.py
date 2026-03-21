@@ -88,12 +88,18 @@ def build_product_opts(products: pd.DataFrame) -> dict[str, str | None]:
 
 def kpi_card(label: str, value: str, icon_name: str,
              icon_bg: str = "#eff6ff", icon_color: str = "#2563eb",
-             sub: str = "") -> str:
+             sub: str = "", tooltip: str = "") -> str:
     sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
+    tip_attr = f' title="{tooltip}"' if tooltip else ""
+    tip_icon = (
+        '<span style="margin-left:0.3rem;color:#9ca3af;font-size:0.5rem;'
+        'cursor:help;">&#9432;</span>'
+        if tooltip else ""
+    )
     return (
-        f'<div class="kpi-card">'
+        f'<div class="kpi-card"{tip_attr}>'
         f'<div class="kpi-left">'
-        f'<div class="kpi-label">{label}</div>'
+        f'<div class="kpi-label">{label}{tip_icon}</div>'
         f'<div class="kpi-value">{value}</div>'
         f'{sub_html}'
         f'</div>'
