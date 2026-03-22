@@ -271,7 +271,7 @@ class AnalyticsState(AppState):
             paper_bgcolor="white",
             plot_bgcolor=COLORS["25"],
             margin=dict(l=0, r=0, t=10, b=0),
-            font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+            font=dict(color=COLORS["charcoal"], size=13, family="Inter"),
             xaxis=dict(gridcolor=COLORS["100"], type="category"),
             yaxis=dict(
                 gridcolor=COLORS["100"],
@@ -347,7 +347,7 @@ class AnalyticsState(AppState):
                 paper_bgcolor="white",
                 plot_bgcolor=COLORS["25"],
                 margin=dict(l=0, r=0, t=10, b=0),
-                font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+                font=dict(color=COLORS["charcoal"], size=13, family="Inter"),
                 xaxis=dict(gridcolor=COLORS["100"], type="category"),
                 yaxis=dict(gridcolor=COLORS["100"], separatethousands=True),
             )

@@ -111,22 +111,22 @@ FONT_FAMILY = "Inter"
 PLOTLY_BASE_LAYOUT = dict(
     paper_bgcolor="white",
     plot_bgcolor="#FCFCFD",
-    font=dict(color="#293056", size=11, family=FONT_FAMILY),
+    font=dict(color="#293056", size=13, family=FONT_FAMILY),
     separators=", ",          # Hungarian: comma decimal, space thousands
     hovermode="x unified",
     showlegend=True,
     legend=dict(
         orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-        font=dict(size=13, family=FONT_FAMILY, color="#293056"),
+        font=dict(size=15, family=FONT_FAMILY, color="#293056"),
         bgcolor="rgba(0,0,0,0)",
     ),
     xaxis=dict(
         gridcolor="#EAECF5", linecolor="#D5D9EB",
-        tickfont=dict(color="#717BBC", size=11), tickangle=-30,
+        tickfont=dict(color="#717BBC", size=13), tickangle=-30,
     ),
     yaxis=dict(
         gridcolor="#EAECF5", linecolor="#D5D9EB",
-        tickfont=dict(color="#717BBC", size=11), zeroline=False,
+        tickfont=dict(color="#717BBC", size=13), zeroline=False,
         separatethousands=True,
     ),
 )

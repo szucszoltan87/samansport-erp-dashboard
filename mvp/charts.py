@@ -46,7 +46,7 @@ def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
         text="Nincs adat",
         xref="paper", yref="paper", x=0.5, y=0.5,
         showarrow=False,
-        font=dict(size=18, color="#9ca3af", family=FONT_FAMILY),
+        font=dict(size=20, color="#9ca3af", family=FONT_FAMILY),
     )
     fig.update_layout(
         **_base_layout(
@@ -63,7 +63,7 @@ def chart_style(fig: go.Figure, height: int = 380, title: str = "",
                 n_xpoints: int = 0) -> None:
     fig.update_layout(
         **_base_layout(
-            title=dict(text=title, font=dict(size=13, color="#374151", family=FONT_FAMILY), x=0) if title else dict(text=""),
+            title=dict(text=title, font=dict(size=15, color="#374151", family=FONT_FAMILY), x=0) if title else dict(text=""),
             height=height,
             margin=dict(l=0, r=0, t=40 if title else 10, b=0),
         ),
@@ -83,7 +83,7 @@ def hbar_chart(labels, values, color: str, height: int = 300) -> None:
         **_base_layout(
             height=height,
             margin=dict(l=0, r=16, t=0, b=0),
-            yaxis=dict(gridcolor="#EAECF5", tickfont=dict(color="#374151", size=10), automargin=True),
+            yaxis=dict(gridcolor="#EAECF5", tickfont=dict(color="#374151", size=12), automargin=True),
         ),
     )
     st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
@@ -126,7 +126,7 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
         marker=dict(color=C["accent"], opacity=0.85),
         text=grp.apply(lambda r: f"  {hu_thousands(r['Forgalom'])} Ft  ({r['Pct']:.1f}%)", axis=1),
         textposition="outside",
-        textfont=dict(size=11, color="#374151"),
+        textfont=dict(size=13, color="#374151"),
         hovertemplate="%{y}<br><b>%{x:,.0f} Ft</b><br>Arány: %{customdata:.1f}%<extra></extra>",
         customdata=grp["Pct"],
         cliponaxis=False,
@@ -136,11 +136,11 @@ def top10_products_chart(grp: pd.DataFrame) -> None:
             height=max(400, len(grp) * 42),
             margin=dict(l=0, r=20, t=0, b=30),
             xaxis=dict(range=[0, max_val * 1.35], gridcolor="#EAECF5",
-                       tickfont=dict(color="#9ca3af", size=10),
+                       tickfont=dict(color="#9ca3af", size=12),
                        tickformat=",.0f", separatethousands=True,
-                       title=dict(text="Bruttó forgalom (HUF)", font=dict(size=11, color="#9ca3af"))),
+                       title=dict(text="Bruttó forgalom (HUF)", font=dict(size=13, color="#9ca3af"))),
             yaxis=dict(type="category", gridcolor="#EAECF5",
-                       tickfont=dict(color="#374151", size=10),
+                       tickfont=dict(color="#374151", size=12),
                        automargin=True, title=None),
         ),
     )
