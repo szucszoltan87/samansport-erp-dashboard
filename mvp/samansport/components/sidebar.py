@@ -227,7 +227,6 @@ def sidebar() -> rx.Component:
     """Collapsible sidebar — fixed left panel."""
     return rx.box(
         _brand_header(),
-        _sync_status(),
         _toggle_button(),
         # Navigation links
         rx.box(
