@@ -236,16 +236,27 @@ class DashboardState(AppState):
                     .rename(columns={sc: "Cikkszám", nc: "Cikknév"})
                 )
                 grp = grp.merge(names, on="Cikkszám", how="left")
-                grp["Label"] = grp.apply(
-                    lambda r: (
-                        f"{r['Cikknév'][:28]} ({r['Cikkszám']})"
-                        if pd.notna(r.get("Cikknév"))
-                        else str(r["Cikkszám"])
-                    ),
-                    axis=1,
-                )
-            else:
-                grp["Label"] = grp["Cikkszám"].astype(str)
+            # Fallback: load product names from CSV master if not in data
+            if "Cikknév" not in grp.columns or grp["Cikknév"].isna().all():
+                try:
+                    from helpers import load_product_master
+                    pm = load_product_master()
+                    if not pm.empty:
+                        grp = grp.drop(columns=["Cikknév"], errors="ignore")
+                        grp = grp.merge(
+                            pm[["Cikkszám", "Cikknév"]].drop_duplicates(subset=["Cikkszám"]),
+                            on="Cikkszám", how="left",
+                        )
+                except Exception:
+                    pass
+            grp["Label"] = grp.apply(
+                lambda r: (
+                    f"{r['Cikknév'][:30]} ({r['Cikkszám']})"
+                    if pd.notna(r.get("Cikknév"))
+                    else str(r["Cikkszám"])
+                ),
+                axis=1,
+            )
 
             grp = grp.sort_values("Forgalom").reset_index(drop=True)
 
@@ -261,10 +272,10 @@ class DashboardState(AppState):
                 height=max(400, len(grp) * 42),
                 paper_bgcolor="white",
                 plot_bgcolor=COLORS["25"],
-                margin=dict(l=0, r=20, t=0, b=30),
+                margin=dict(l=0, r=0, t=0, b=30),
                 font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
                 yaxis=dict(type="category", automargin=True),
-                xaxis=dict(separatethousands=True),
+                xaxis=dict(separatethousands=True, automargin=True),
                 showlegend=False,
             )
             self.top10_chart = fig_top
