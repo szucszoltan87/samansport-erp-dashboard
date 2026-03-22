@@ -219,30 +219,40 @@ section[data-testid="stSidebar"] > div > button {{
 [data-testid="stSidebar"] .stMarkdown {{ margin: 0 !important; }}
 [data-testid="stSidebar"] .stMarkdown p {{ margin: 0 !important; }}
 
-/* ── Sidebar toggle button: overlaid on the toggle icon area ── */
+/* ── Sidebar toggle icon + button ── */
 .sb-toggle-icon {{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.15rem 0.75rem;
+    height: 2.1rem;
+    box-sizing: border-box;
     cursor: pointer;
+    /* Float over the brand header */
+    margin-top: -2.6rem;
+    position: relative;
+    z-index: 5;
+}}
+.sb-toggle-icon svg {{
     padding: 0.2rem;
     border-radius: 4px;
     transition: background 0.15s;
-    display: flex;
-    align-items: center;
 }}
-.sb-toggle-icon:hover {{ background: rgba(255,255,255,0.08); }}
-/* Toggle button = stButton right after the element containing .sb-toggle-icon */
+.sb-toggle-icon:hover svg {{ background: rgba(255,255,255,0.1); }}
+/* Toggle button = stButton right after .sb-toggle-icon element */
 [data-testid="stSidebar"] .element-container:has(.sb-toggle-icon) + .element-container div.stButton {{
-    margin-top: -1.6rem !important;
+    margin-top: -2.1rem !important;
     margin-bottom: 0 !important;
-    padding: 0 !important;
+    padding: 0 0.75rem !important;
     position: relative;
     z-index: 15;
-    height: 1.6rem !important;
+    height: 2.1rem !important;
+    display: flex !important;
+    justify-content: flex-end !important;
 }}
 [data-testid="stSidebar"] .element-container:has(.sb-toggle-icon) + .element-container div.stButton > button {{
-    width: 2rem !important;
-    height: 1.6rem !important;
-    margin-left: auto !important;
-    margin-right: 0.75rem !important;
+    width: 2.2rem !important;
+    height: 2.1rem !important;
 }}
 
 /* ── Sidebar nav buttons: transparent, overlaid on HTML nav rows ── */

@@ -49,21 +49,18 @@ def render_sidebar():
         # Inject dynamic width CSS
         _inject_sidebar_width_css(collapsed)
 
-        # ── Brand header + collapse toggle ───────────────────────────────
-        _toggle_icon = "panel-left-close" if not collapsed else "panel-left-open"
+        # ── Brand header ──────────────────────────────────────────────────
         _brand_text = (
             '<span class="sb-brand-text">'
             ' Saman<span style="color:rgba(179,184,219,0.6);">Sport</span>'
             '</span>'
         )
         st.markdown(
-            '<div style="padding:1.2rem 0.75rem 0.5rem;display:flex;'
-            'align-items:center;justify-content:space-between;">'
+            '<div style="padding:1.2rem 0.75rem 0rem;">'
             '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:1.02rem;'
             'font-weight:700;color:#D5D9EB;letter-spacing:-0.025em;line-height:1.2;'
             'display:flex;align-items:center;">'
             f'<span style="color:#4E5BA6;">&#9632;</span>{_brand_text}</div>'
-            f'<div class="sb-toggle-icon">{svg(_toggle_icon, 18, "rgba(179,184,219,0.5)")}</div>'
             '</div>'
             '<div class="sb-status-block" style="padding:0 0.75rem 0.1rem;">'
             '<div style="font-family:\'DM Sans\',sans-serif;font-size:0.63rem;'
@@ -71,7 +68,15 @@ def render_sidebar():
             '</div>',
             unsafe_allow_html=True,
         )
-        # Invisible toggle button overlaid on the icon
+
+        # ── Collapse toggle (own element → reliable overlay) ─────────────
+        _toggle_icon = "panel-left-close" if not collapsed else "panel-left-open"
+        st.markdown(
+            f'<div class="sb-toggle-icon">'
+            f'{svg(_toggle_icon, 18, "rgba(179,184,219,0.5)")}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         if st.button("\u200b", key="sb_toggle"):
             st.session_state["sidebar_collapsed"] = not collapsed
             st.rerun()
