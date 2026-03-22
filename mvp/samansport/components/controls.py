@@ -14,8 +14,8 @@ def _preset_pill(label: str) -> rx.Component:
     return rx.button(
         label,
         on_click=AppState.set_preset(label),
-        background=rx.cond(is_active, COLORS["accent"], "#ffffff"),
-        color=rx.cond(is_active, "#ffffff", COLORS["700"]),
+        background=rx.cond(is_active, COLORS["accent"], COLORS["white"]),
+        color=rx.cond(is_active, COLORS["white"], COLORS["700"]),
         border=rx.cond(
             is_active,
             f"1px solid {COLORS['accent']}",
@@ -65,18 +65,28 @@ def controls() -> rx.Component:
         rx.hstack(
             rx.box(
                 rx.heading(
-                    AppState.greeting + "! 👋",
+                    AppState.greeting + "! \U0001f44b",
                     font_size="1.35rem",
                     font_weight="700",
                     color=COLORS["900"],
                     line_height="1.3",
                 ),
                 rx.text(
-                    AppState.formatted_date,
+                    "Itt találod az üzleti áttekintést és elemzéseket.",
                     font_size="0.85rem",
                     color=COLORS["400"],
                     margin_top="0.15rem",
                 ),
+            ),
+            rx.hstack(
+                rx.icon(tag="calendar", size=15, color=COLORS["text_secondary"]),
+                rx.text(
+                    AppState.formatted_date,
+                    font_size="0.85rem",
+                    color=COLORS["text_secondary"],
+                ),
+                spacing="1",
+                align_items="center",
             ),
             justify_content="space-between",
             align_items="flex-start",

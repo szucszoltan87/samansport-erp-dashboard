@@ -28,9 +28,9 @@ def _nav_item(label: str, icon_tag: str, href: str, page_key: str) -> rx.Compone
             align_items="center",
             padding="0.5rem 0.75rem",
             border_radius="8px",
-            color=rx.cond(is_active, "#FCFCFD", COLORS["sidebar_text"]),
+            color=rx.cond(is_active, COLORS["25"], COLORS["sidebar_text"]),
             background=rx.cond(is_active, COLORS["sidebar_active_bg"], "transparent"),
-            _hover={"background": COLORS["sidebar_active_bg"], "color": "#FCFCFD"},
+            _hover={"background": COLORS["sidebar_active_bg"], "color": COLORS["25"]},
             transition=TRANSITION,
             cursor="pointer",
         ),
@@ -77,6 +77,47 @@ def _brand_header() -> rx.Component:
         padding_bottom="1.25rem",
         border_bottom=f"1px solid rgba(179,184,219,0.15)",
         margin_bottom="0.75rem",
+    )
+
+
+def _sync_status() -> rx.Component:
+    """Connection health dot + mode label + last sync timestamp."""
+    return rx.cond(
+        AppState.sidebar_collapsed,
+        rx.fragment(),
+        rx.box(
+            rx.hstack(
+                rx.box(
+                    width="7px",
+                    height="7px",
+                    border_radius="50%",
+                    background=rx.cond(
+                        AppState.connection_ok, COLORS["green"], COLORS["red"]
+                    ),
+                    flex_shrink="0",
+                ),
+                rx.box(
+                    rx.text(
+                        AppState.connection_mode,
+                        font_size="0.6rem",
+                        color="rgba(179,184,219,0.5)",
+                    ),
+                    rx.cond(
+                        AppState.last_synced != "",
+                        rx.text(
+                            "Legutóbbi szinkronizálás: "
+                            + AppState.last_synced,
+                            font_size="0.55rem",
+                            color="rgba(179,184,219,0.4)",
+                        ),
+                        rx.fragment(),
+                    ),
+                ),
+                align_items="center",
+                spacing="2",
+            ),
+            padding="0 0.75rem 0.75rem",
+        ),
     )
 
 
@@ -129,7 +170,7 @@ def _bottom_section() -> rx.Component:
             align_items="center",
             padding="0.5rem 0.75rem",
             border_radius="8px",
-            _hover={"background": COLORS["sidebar_active_bg"], "color": "#FCFCFD"},
+            _hover={"background": COLORS["sidebar_active_bg"], "color": COLORS["25"]},
             cursor="pointer",
             transition=TRANSITION,
         ),
@@ -146,7 +187,7 @@ def _bottom_section() -> rx.Component:
                     "SS",
                     font_size="0.75rem",
                     font_weight="700",
-                    color="#FCFCFD",
+                    color=COLORS["25"],
                 ),
                 display="flex",
                 align_items="center",
@@ -182,6 +223,7 @@ def sidebar() -> rx.Component:
     """Collapsible sidebar — fixed left panel."""
     return rx.box(
         _brand_header(),
+        _sync_status(),
         _toggle_button(),
         # Navigation links
         rx.box(

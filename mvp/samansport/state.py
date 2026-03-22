@@ -18,9 +18,43 @@ class AppState(rx.State):
 
     # Sync info
     last_synced: str = ""
+    connection_ok: bool = True
+    connection_mode: str = ""
 
     # Current page
     current_page: str = "dashboard"
+
+    def check_connection_and_sync(self):
+        """Fetch connection health and last sync timestamp from the API."""
+        try:
+            import sys
+            import os
+
+            _mvp_dir = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
+            if _mvp_dir not in sys.path:
+                sys.path.insert(0, _mvp_dir)
+            import tharanis_client as api
+
+            health = api.check_connection()
+            self.connection_ok = health.get("ok", False)
+            self.connection_mode = health.get("mode", "")
+
+            raw_ts = api.get_last_sync_time()
+            if raw_ts:
+                from datetime import datetime as _dt
+
+                try:
+                    parsed = _dt.fromisoformat(raw_ts.replace("Z", "+00:00"))
+                    self.last_synced = parsed.strftime("%Y.%m.%d %H:%M")
+                except Exception:
+                    self.last_synced = ""
+            else:
+                self.last_synced = ""
+        except Exception:
+            self.connection_ok = False
+            self.last_synced = ""
 
     def _init_dates(self):
         """Initialize dates if empty."""

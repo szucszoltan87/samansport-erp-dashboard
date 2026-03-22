@@ -35,6 +35,17 @@ COLORS = {
     "sidebar_bg": "#363F72",
     "sidebar_text": "#B3B8DB",
     "sidebar_active_bg": "rgba(78,91,166,0.18)",
+    # Neutral grays (Tailwind-aligned)
+    "white": "#ffffff",
+    "muted": "#9ca3af",        # gray-400
+    "text_secondary": "#6b7280",  # gray-500
+    "text_body": "#374151",    # gray-700
+    "text_dark": "#111827",    # gray-900
+    # KPI icon backgrounds
+    "blue_light": "#eff6ff",   # blue-50
+    "green_light": "#f0fdf4",  # green-50
+    "amber_light": "#fef3c7",  # amber-100
+    "pink_light": "#fdf2f8",   # pink-50
 }
 
 # ---------------------------------------------------------------------------

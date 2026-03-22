@@ -10,8 +10,8 @@ def kpi_card(
     value: rx.Var | str,
     sub: rx.Var | str = "",
     icon_name: str = "",
-    icon_bg: str = "#eff6ff",
-    icon_color: str = "#4E5BA6",
+    icon_bg: str = COLORS["blue_light"],
+    icon_color: str = COLORS["accent"],
 ) -> rx.Component:
     """Single KPI card with label, value, optional subtitle, and icon."""
     icon_box = rx.box(
@@ -32,18 +32,18 @@ def kpi_card(
                     label,
                     font_size="0.75rem",
                     font_weight="500",
-                    color="#6b7280",
+                    color=COLORS["text_secondary"],
                 ),
                 rx.text(
                     value,
                     font_size="1.25rem",
                     font_weight="800",
-                    color="#111827",
+                    color=COLORS["text_dark"],
                     letter_spacing="-0.03em",
                 ),
                 rx.cond(
                     sub != "",
-                    rx.text(sub, font_size="0.7rem", color="#9ca3af"),
+                    rx.text(sub, font_size="0.7rem", color=COLORS["muted"]),
                     rx.fragment(),
                 ),
                 spacing="1",

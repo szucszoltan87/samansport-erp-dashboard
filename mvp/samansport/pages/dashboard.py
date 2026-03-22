@@ -81,6 +81,15 @@ class DashboardState(AppState):
     is_loading: bool = False
     has_data: bool = False
 
+    # Private storage for the raw DataFrame so period changes can rebuild charts
+    _raw_sales_df: object = None  # pd.DataFrame stored as object to avoid serialisation
+
+    def set_period(self, period: str):
+        """Override parent to rebuild charts when dashboard period changes."""
+        self.period = period
+        if self._raw_sales_df is not None:
+            self._rebuild_charts(self._raw_sales_df)
+
     async def load_dashboard_data(self):
         """Fetch sales data and compute KPIs + charts."""
         self.is_loading = True
@@ -128,115 +137,12 @@ class DashboardState(AppState):
             )
             self.kpi_transactions_sub = f"{df['kelt'].dt.year.nunique()} aktív év"
 
-            # ── Revenue trend (area) ─────────────────────────────────
-            df2 = df.copy()
-            df2["Periódus"] = _period_key(df2["kelt"], self.period)
-            monthly = (
-                df2.groupby("Periódus")["Bruttó érték"]
-                .sum()
-                .reset_index()
-                .sort_values("Periódus")
-            )
+            # Store raw df for period-change rebuilds
+            self._raw_sales_df = df
 
-            fig_rev = go.Figure()
-            fig_rev.add_trace(
-                go.Scatter(
-                    x=monthly["Periódus"].tolist(),
-                    y=monthly["Bruttó érték"].tolist(),
-                    mode="lines",
-                    name="Bruttó forgalom",
-                    line=dict(color=COLORS["accent"], width=2.5),
-                    fill="tozeroy",
-                    fillcolor="rgba(78,91,166,0.08)",
-                )
-            )
-            fig_rev.update_layout(
-                height=260,
-                paper_bgcolor="white",
-                plot_bgcolor=COLORS["25"],
-                margin=dict(l=0, r=0, t=10, b=0),
-                font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
-                xaxis=dict(gridcolor=COLORS["100"], type="category"),
-                yaxis=dict(gridcolor=COLORS["100"], separatethousands=True),
-                showlegend=False,
-            )
-            self.revenue_chart = fig_rev
-            # ── Quantity bar chart ───────────────────────────────────
-            mq = (
-                df2.groupby("Periódus")["Mennyiség"]
-                .sum()
-                .reset_index()
-                .sort_values("Periódus")
-            )
-            fig_qty = go.Figure(
-                go.Bar(
-                    x=mq["Periódus"].tolist(),
-                    y=mq["Mennyiség"].tolist(),
-                    marker=dict(color=COLORS["charcoal"], opacity=0.8),
-                )
-            )
-            fig_qty.update_layout(
-                height=230,
-                paper_bgcolor="white",
-                plot_bgcolor=COLORS["25"],
-                margin=dict(l=0, r=0, t=10, b=0),
-                font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
-                xaxis=dict(gridcolor=COLORS["100"], type="category"),
-                yaxis=dict(gridcolor=COLORS["100"], separatethousands=True),
-                showlegend=False,
-            )
-            self.quantity_chart = fig_qty
-            # ── Top 10 products (horizontal bar) ─────────────────────
-            sc = _find_sku_col(df)
-            if sc:
-                total_revenue = df["Bruttó érték"].sum()
-                grp = (
-                    df.groupby(sc)["Bruttó érték"]
-                    .sum()
-                    .nlargest(10)
-                    .reset_index()
-                )
-                grp.columns = ["Cikkszám", "Forgalom"]
-                nc = _find_name_col(df)
-                if nc:
-                    names = (
-                        df[[sc, nc]]
-                        .drop_duplicates()
-                        .rename(columns={sc: "Cikkszám", nc: "Cikknév"})
-                    )
-                    grp = grp.merge(names, on="Cikkszám", how="left")
-                    grp["Label"] = grp.apply(
-                        lambda r: (
-                            f"{r['Cikknév'][:28]} ({r['Cikkszám']})"
-                            if pd.notna(r.get("Cikknév"))
-                            else str(r["Cikkszám"])
-                        ),
-                        axis=1,
-                    )
-                else:
-                    grp["Label"] = grp["Cikkszám"].astype(str)
+            # Build charts from data
+            self._rebuild_charts(df)
 
-                grp = grp.sort_values("Forgalom").reset_index(drop=True)
-
-                fig_top = go.Figure(
-                    go.Bar(
-                        x=grp["Forgalom"].tolist(),
-                        y=grp["Label"].tolist(),
-                        orientation="h",
-                        marker=dict(color=COLORS["accent"], opacity=0.85),
-                    )
-                )
-                fig_top.update_layout(
-                    height=max(400, len(grp) * 42),
-                    paper_bgcolor="white",
-                    plot_bgcolor=COLORS["25"],
-                    margin=dict(l=0, r=20, t=0, b=30),
-                    font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
-                    yaxis=dict(type="category", automargin=True),
-                    xaxis=dict(separatethousands=True),
-                    showlegend=False,
-                )
-                self.top10_chart = fig_top
             self.has_data = True
         except Exception as e:
             print(f"Dashboard load error: {e}")
@@ -246,6 +152,122 @@ class DashboardState(AppState):
             self.has_data = False
         finally:
             self.is_loading = False
+
+    def _rebuild_charts(self, df):
+        """(Re)build revenue, quantity, and top-10 charts from *df*."""
+        import pandas as pd
+        import plotly.graph_objects as go
+
+        # ── Revenue trend (area) ─────────────────────────────────
+        df2 = df.copy()
+        df2["Periódus"] = _period_key(df2["kelt"], self.period)
+        monthly = (
+            df2.groupby("Periódus")["Bruttó érték"]
+            .sum()
+            .reset_index()
+            .sort_values("Periódus")
+        )
+
+        fig_rev = go.Figure()
+        fig_rev.add_trace(
+            go.Scatter(
+                x=monthly["Periódus"].tolist(),
+                y=monthly["Bruttó érték"].tolist(),
+                mode="lines",
+                name="Bruttó forgalom",
+                line=dict(color=COLORS["accent"], width=2.5),
+                fill="tozeroy",
+                fillcolor="rgba(78,91,166,0.08)",
+            )
+        )
+        fig_rev.update_layout(
+            height=260,
+            paper_bgcolor="white",
+            plot_bgcolor=COLORS["25"],
+            margin=dict(l=0, r=0, t=10, b=0),
+            font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+            xaxis=dict(gridcolor=COLORS["100"], type="category"),
+            yaxis=dict(gridcolor=COLORS["100"], separatethousands=True),
+            showlegend=False,
+        )
+        self.revenue_chart = fig_rev
+
+        # ── Quantity bar chart ───────────────────────────────────
+        mq = (
+            df2.groupby("Periódus")["Mennyiség"]
+            .sum()
+            .reset_index()
+            .sort_values("Periódus")
+        )
+        fig_qty = go.Figure(
+            go.Bar(
+                x=mq["Periódus"].tolist(),
+                y=mq["Mennyiség"].tolist(),
+                marker=dict(color=COLORS["charcoal"], opacity=0.8),
+            )
+        )
+        fig_qty.update_layout(
+            height=230,
+            paper_bgcolor="white",
+            plot_bgcolor=COLORS["25"],
+            margin=dict(l=0, r=0, t=10, b=0),
+            font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+            xaxis=dict(gridcolor=COLORS["100"], type="category"),
+            yaxis=dict(gridcolor=COLORS["100"], separatethousands=True),
+            showlegend=False,
+        )
+        self.quantity_chart = fig_qty
+
+        # ── Top 10 products (horizontal bar) ─────────────────────
+        sc = _find_sku_col(df)
+        if sc:
+            grp = (
+                df.groupby(sc)["Bruttó érték"]
+                .sum()
+                .nlargest(10)
+                .reset_index()
+            )
+            grp.columns = ["Cikkszám", "Forgalom"]
+            nc = _find_name_col(df)
+            if nc:
+                names = (
+                    df[[sc, nc]]
+                    .drop_duplicates()
+                    .rename(columns={sc: "Cikkszám", nc: "Cikknév"})
+                )
+                grp = grp.merge(names, on="Cikkszám", how="left")
+                grp["Label"] = grp.apply(
+                    lambda r: (
+                        f"{r['Cikknév'][:28]} ({r['Cikkszám']})"
+                        if pd.notna(r.get("Cikknév"))
+                        else str(r["Cikkszám"])
+                    ),
+                    axis=1,
+                )
+            else:
+                grp["Label"] = grp["Cikkszám"].astype(str)
+
+            grp = grp.sort_values("Forgalom").reset_index(drop=True)
+
+            fig_top = go.Figure(
+                go.Bar(
+                    x=grp["Forgalom"].tolist(),
+                    y=grp["Label"].tolist(),
+                    orientation="h",
+                    marker=dict(color=COLORS["accent"], opacity=0.85),
+                )
+            )
+            fig_top.update_layout(
+                height=max(400, len(grp) * 42),
+                paper_bgcolor="white",
+                plot_bgcolor=COLORS["25"],
+                margin=dict(l=0, r=20, t=0, b=30),
+                font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+                yaxis=dict(type="category", automargin=True),
+                xaxis=dict(separatethousands=True),
+                showlegend=False,
+            )
+            self.top10_chart = fig_top
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +281,7 @@ def _chart_card(title: str, chart_data: rx.Var) -> rx.Component:
             title,
             font_weight="700",
             font_size="0.85rem",
-            color="#111827",
+            color=COLORS["text_dark"],
             margin_bottom="0.5rem",
         ),
         rx.plotly(data=chart_data),
@@ -297,7 +319,7 @@ def _period_toggle() -> rx.Component:
 # Page
 # ---------------------------------------------------------------------------
 
-@rx.page(route="/", title="Dashboard | SamanSport", on_load=DashboardState.load_dashboard_data)
+@rx.page(route="/", title="Dashboard | SamanSport", on_load=[AppState.check_connection_and_sync, DashboardState.load_dashboard_data])
 @template
 def dashboard() -> rx.Component:
     return rx.box(
@@ -320,7 +342,7 @@ def dashboard() -> rx.Component:
                 DashboardState.kpi_revenue,
                 sub=DashboardState.kpi_revenue_sub,
                 icon_name="dollar-sign",
-                icon_bg="#eff6ff",
+                icon_bg=COLORS["blue_light"],
                 icon_color=COLORS["accent"],
             ),
             kpi_card(
@@ -328,7 +350,7 @@ def dashboard() -> rx.Component:
                 DashboardState.kpi_quantity,
                 sub=DashboardState.kpi_quantity_sub,
                 icon_name="package",
-                icon_bg="#f0fdf4",
+                icon_bg=COLORS["green_light"],
                 icon_color=COLORS["green"],
             ),
             kpi_card(
@@ -336,7 +358,7 @@ def dashboard() -> rx.Component:
                 DashboardState.kpi_avg_price,
                 sub=DashboardState.kpi_avg_price_sub,
                 icon_name="tag",
-                icon_bg="#fef3c7",
+                icon_bg=COLORS["amber_light"],
                 icon_color=COLORS["amber"],
             ),
             kpi_card(
@@ -344,7 +366,7 @@ def dashboard() -> rx.Component:
                 DashboardState.kpi_transactions,
                 sub=DashboardState.kpi_transactions_sub,
                 icon_name="receipt",
-                icon_bg="#fdf2f8",
+                icon_bg=COLORS["pink_light"],
                 icon_color=COLORS["purple"],
             ),
         ),
@@ -364,11 +386,11 @@ def dashboard() -> rx.Component:
                         "Nincs betöltött adat",
                         font_weight="700",
                         font_size="1rem",
-                        color="#374151",
+                        color=COLORS["text_body"],
                     ),
                     rx.text(
                         "Válasszon dátumtartományt az oldalsávban.",
-                        color="#9ca3af",
+                        color=COLORS["muted"],
                     ),
                     align="center",
                     padding="3rem",

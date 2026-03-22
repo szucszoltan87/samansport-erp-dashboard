@@ -10,10 +10,11 @@ from datetime import datetime, date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from samansport.state import AppState
+from samansport.styles import COLORS
 from samansport.templates.template import template
 
 
-PERIOD_OPTIONS = ["Havi", "Heti", "Napi"]
+PERIOD_OPTIONS = ["Éves", "Havi", "Heti", "Napi"]
 METRIC_KEYS = [
     "Bruttó forgalom",
     "Nettó forgalom",
@@ -201,7 +202,7 @@ class AnalyticsState(AppState):
                 go.Bar(
                     x=grouped["Periódus"].tolist(),
                     y=grouped[col_name].tolist(),
-                    marker_color="#4E5BA6",
+                    marker_color=COLORS["accent"],
                     name=self.selected_metric,
                 )
             )
@@ -212,7 +213,7 @@ class AnalyticsState(AppState):
                     y=grouped[col_name].tolist(),
                     mode="lines+markers",
                     name=self.selected_metric,
-                    line=dict(color="#4E5BA6", width=2.5),
+                    line=dict(color=COLORS["accent"], width=2.5),
                     fill="tozeroy",
                     fillcolor="rgba(78,91,166,0.07)",
                 )
@@ -220,12 +221,12 @@ class AnalyticsState(AppState):
         fig.update_layout(
             height=380,
             paper_bgcolor="white",
-            plot_bgcolor="#FCFCFD",
+            plot_bgcolor=COLORS["25"],
             margin=dict(l=0, r=0, t=10, b=0),
-            font=dict(color="#293056", size=11, family="Inter"),
-            xaxis=dict(gridcolor="#EAECF5", type="category"),
+            font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+            xaxis=dict(gridcolor=COLORS["100"], type="category"),
             yaxis=dict(
-                gridcolor="#EAECF5",
+                gridcolor=COLORS["100"],
                 separatethousands=True,
                 title=f"{self.selected_metric} ({unit})",
             ),
@@ -286,20 +287,20 @@ class AnalyticsState(AppState):
 
             fig = go.Figure()
             fig.add_trace(
-                go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color="#4E5BA6")
+                go.Bar(x=all_p, y=be_v, name="Beérkező", marker_color=COLORS["accent"])
             )
             fig.add_trace(
-                go.Bar(x=all_p, y=ki_v, name="Kiadó", marker_color="#293056")
+                go.Bar(x=all_p, y=ki_v, name="Kiadó", marker_color=COLORS["charcoal"])
             )
             fig.update_layout(
                 barmode="group",
                 height=380,
                 paper_bgcolor="white",
-                plot_bgcolor="#FCFCFD",
+                plot_bgcolor=COLORS["25"],
                 margin=dict(l=0, r=0, t=10, b=0),
-                font=dict(color="#293056", size=11, family="Inter"),
-                xaxis=dict(gridcolor="#EAECF5", type="category"),
-                yaxis=dict(gridcolor="#EAECF5", separatethousands=True),
+                font=dict(color=COLORS["charcoal"], size=11, family="Inter"),
+                xaxis=dict(gridcolor=COLORS["100"], type="category"),
+                yaxis=dict(gridcolor=COLORS["100"], separatethousands=True),
             )
             self.movements_chart_data = fig
 
@@ -328,16 +329,16 @@ def _metric_card(label: str, value: rx.Var) -> rx.Component:
         rx.text(
             label,
             font_size="0.65rem",
-            color="#9ca3af",
+            color=COLORS["muted"],
             font_weight="600",
             text_transform="uppercase",
             letter_spacing="0.03em",
         ),
-        rx.text(value, font_weight="700", font_size="0.9rem", color="#293056"),
+        rx.text(value, font_weight="700", font_size="0.9rem", color=COLORS["charcoal"]),
         padding="0.75rem",
         background="white",
         border_radius="8px",
-        border="1px solid #EAECF5",
+        border=f"1px solid {COLORS['100']}",
     )
 
 
@@ -386,7 +387,7 @@ def _sales_tab() -> rx.Component:
                     ),
                     rx.text(
                         "Kattintson a gombra az adatok betöltéséhez.",
-                        color="#9ca3af",
+                        color=COLORS["muted"],
                         font_size="0.8rem",
                     ),
                     align="center",
@@ -394,7 +395,7 @@ def _sales_tab() -> rx.Component:
                     padding="3rem",
                     background="white",
                     border_radius="10px",
-                    border="1px solid #EAECF5",
+                    border=f"1px solid {COLORS['100']}",
                 ),
             ),
             # Data loaded — controls + chart + summary
@@ -407,7 +408,7 @@ def _sales_tab() -> rx.Component:
                             "MUTATÓ",
                             font_size="0.7rem",
                             font_weight="600",
-                            color="#9ca3af",
+                            color=COLORS["muted"],
                             text_transform="uppercase",
                         ),
                         rx.select(
@@ -423,7 +424,7 @@ def _sales_tab() -> rx.Component:
                             "PERIÓDUS",
                             font_size="0.7rem",
                             font_weight="600",
-                            color="#9ca3af",
+                            color=COLORS["muted"],
                             text_transform="uppercase",
                         ),
                         rx.hstack(
@@ -445,7 +446,7 @@ def _sales_tab() -> rx.Component:
                             "DIAGRAM",
                             font_size="0.7rem",
                             font_weight="600",
-                            color="#9ca3af",
+                            color=COLORS["muted"],
                             text_transform="uppercase",
                         ),
                         rx.hstack(
@@ -474,7 +475,7 @@ def _sales_tab() -> rx.Component:
                     background="white",
                     border_radius="10px",
                     padding="1rem",
-                    border="1px solid #EAECF5",
+                    border=f"1px solid {COLORS['100']}",
                     margin_bottom="1rem",
                 ),
                 # Summary metrics row
@@ -526,7 +527,7 @@ def _movements_tab() -> rx.Component:
                     ),
                     rx.text(
                         "Kattintson a gombra a mozgásadatok betöltéséhez.",
-                        color="#9ca3af",
+                        color=COLORS["muted"],
                         font_size="0.8rem",
                     ),
                     align="center",
@@ -534,7 +535,7 @@ def _movements_tab() -> rx.Component:
                     padding="3rem",
                     background="white",
                     border_radius="10px",
-                    border="1px solid #EAECF5",
+                    border=f"1px solid {COLORS['100']}",
                 ),
             ),
             rx.box(
@@ -545,13 +546,13 @@ def _movements_tab() -> rx.Component:
                         font_weight="700",
                         font_size="0.85rem",
                         margin_bottom="0.5rem",
-                        color="#293056",
+                        color=COLORS["charcoal"],
                     ),
                     rx.plotly(data=AnalyticsState.movements_chart_data),
                     background="white",
                     border_radius="10px",
                     padding="1rem",
-                    border="1px solid #EAECF5",
+                    border=f"1px solid {COLORS['100']}",
                     margin_bottom="1rem",
                 ),
                 # Summary metrics

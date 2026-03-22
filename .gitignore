@@ -25,6 +25,9 @@ Thumbs.db
 .idea/
 *.swp
 
+# Reflex
+.web/
+
 # Build
 dist/
 build/
