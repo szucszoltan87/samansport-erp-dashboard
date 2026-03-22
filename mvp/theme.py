@@ -229,23 +229,24 @@ section[data-testid="stSidebar"] > div > button {{
     align-items: center;
 }}
 .sb-toggle-icon:hover {{ background: rgba(255,255,255,0.08); }}
-[data-testid="stSidebar"] div.stButton:has(button[key="sb_toggle"]) {{
-    margin-top: -2rem !important;
+/* Toggle button = stButton right after the element containing .sb-toggle-icon */
+[data-testid="stSidebar"] .element-container:has(.sb-toggle-icon) + .element-container div.stButton {{
+    margin-top: -1.6rem !important;
     margin-bottom: 0 !important;
     padding: 0 !important;
     position: relative;
     z-index: 15;
-    height: 1.8rem !important;
+    height: 1.6rem !important;
 }}
-[data-testid="stSidebar"] div.stButton:has(button[key="sb_toggle"]) > button {{
+[data-testid="stSidebar"] .element-container:has(.sb-toggle-icon) + .element-container div.stButton > button {{
     width: 2rem !important;
-    height: 1.8rem !important;
+    height: 1.6rem !important;
     margin-left: auto !important;
     margin-right: 0.75rem !important;
 }}
 
 /* ── Sidebar nav buttons: transparent, overlaid on HTML nav rows ── */
-[data-testid="stSidebar"] div.stButton:not(:has(button[key="sb_toggle"])) {{
+[data-testid="stSidebar"] div.stButton {{
     margin-top: -2.1rem !important;
     margin-bottom: 0 !important;
     padding: 0 0.75rem !important;
