@@ -8,9 +8,9 @@ class AppState(rx.State):
     # Sidebar
     sidebar_collapsed: bool = False
 
-    # Date range
-    date_start: str = ""  # YYYY-MM-DD
-    date_end: str = ""  # YYYY-MM-DD
+    # Date range (defaults set via _default_start / _default_end)
+    date_start: str = (date.today() - timedelta(days=30)).isoformat()
+    date_end: str = date.today().isoformat()
     active_preset: str = "30 nap"
 
     # Period toggle
