@@ -24,10 +24,10 @@ def period_key(series: pd.Series, period: str) -> pd.Series:
     if period == "Éves":
         return series.dt.to_period("Y").astype(str)
     if period == "Havi":
-        return series.dt.strftime("%Y.%m")
+        return series.dt.strftime("%Y-%m")
     if period == "Heti":
         return series.dt.to_period("W").astype(str)
-    return series.dt.strftime("%Y.%m.%d")
+    return series.dt.strftime("%Y-%m-%d")
 
 
 def find_sku_col(df: pd.DataFrame):

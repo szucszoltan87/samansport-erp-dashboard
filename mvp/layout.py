@@ -213,11 +213,11 @@ def render_header():
         st.session_state["start_date"] = start
         st.session_state["end_date"] = end
 
-    pill_cols = st.columns([1] * len(_ranges) + [max(1, 8 - len(_ranges))])
+    pill_cols = st.columns(len(_ranges) + 1)
     for col, (label, (r_start, r_end)) in zip(pill_cols, _ranges.items()):
         with col:
             st.button(
-                label, key=f"qr_{label}", use_container_width=True,
+                label, key=f"qr_{label}",
                 on_click=_set_range, args=(r_start, r_end),
             )
 

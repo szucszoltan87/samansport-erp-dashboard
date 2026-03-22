@@ -22,17 +22,22 @@ def _base_layout(**overrides) -> dict:
 def _smart_xaxis(n_points: int) -> dict:
     """Return xaxis overrides for readable, non-overlapping tick labels.
 
-    Uses the number of data points to decide tick density:
+    Forces categorical type so period strings (e.g. "2025.02") aren't
+    interpreted as numbers. Adjusts tick density based on point count:
     - <=7 points (daily short range): show all ticks
     - <=15 points (weekly / short-medium): show ~7-10 ticks
     - >15 points (monthly / long range): limit to ~6-8 ticks
     """
+    base = dict(type="category")
     if n_points <= 7:
-        return dict(tickangle=0)
-    if n_points <= 15:
-        return dict(nticks=min(n_points, 10), tickangle=-30)
-    # Many points – limit to avoid crowding
-    return dict(nticks=8, tickangle=-30)
+        base["tickangle"] = 0
+    elif n_points <= 15:
+        base["nticks"] = min(n_points, 10)
+        base["tickangle"] = -30
+    else:
+        base["nticks"] = 8
+        base["tickangle"] = -30
+    return base
 
 
 def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
@@ -56,15 +61,15 @@ def _empty_chart_placeholder(fig: go.Figure, height: int = 380) -> None:
 
 def chart_style(fig: go.Figure, height: int = 380, title: str = "",
                 n_xpoints: int = 0) -> None:
-    xaxis_extra = _smart_xaxis(n_xpoints) if n_xpoints > 0 else {}
     fig.update_layout(
         **_base_layout(
             title=dict(text=title, font=dict(size=13, color="#374151", family=FONT_FAMILY), x=0) if title else dict(text=""),
             height=height,
             margin=dict(l=0, r=0, t=40 if title else 10, b=0),
-            xaxis={**PLOTLY_BASE_LAYOUT.get("xaxis", {}), **xaxis_extra},
         ),
     )
+    if n_xpoints > 0:
+        fig.update_xaxes(**_smart_xaxis(n_xpoints))
     st.plotly_chart(fig, use_container_width=True, config=PLOTLY_NO_MODEBAR)
 
 

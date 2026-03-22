@@ -179,6 +179,10 @@ def inject_css() -> None:
 #MainMenu, footer, header {{ visibility: hidden; }}
 [data-testid="stDecoration"] {{ display: none; }}
 [data-testid="stToolbar"] {{ display: none; }}
+/* Hide Streamlit native page navigation in sidebar */
+[data-testid="stSidebarNav"],
+section[data-testid="stSidebar"] ul[data-testid="stSidebarNavItems"],
+section[data-testid="stSidebar"] nav {{ display: none !important; }}
 
 /* ── Sidebar frame ── */
 section[data-testid="stSidebar"] {{
@@ -529,28 +533,31 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     border-color: #3E4784 !important;
 }}
 
-/* ── Quick date range pill buttons ── */
-.main div.stButton:has(button[key^="qr_"]) > button {{
-    background: #F8F9FC !important;
-    border: 1px solid #D5D9EB !important;
+/* ── Quick date range pill buttons (6-column row) ── */
+.main [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(6)) {{
+    gap: 0.35rem !important;
+    max-width: 36rem;
+}}
+.main [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(6)) .stButton > button {{
+    background: #ffffff !important;
+    border: 1.5px solid #B3B8DB !important;
     color: #4E5BA6 !important;
-    padding: 0.15rem 0.6rem !important;
+    padding: 0.2rem 0.1rem !important;
     font-size: 0.55rem !important;
     font-weight: 600 !important;
     min-height: 0 !important;
     border-radius: 9999px !important;
     line-height: 1.2 !important;
-    white-space: nowrap !important;
     letter-spacing: 0.01em !important;
     transition: all 0.15s ease !important;
-    box-shadow: none !important;
-    height: 1.5rem !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+    height: 1.6rem !important;
 }}
-.main div.stButton:has(button[key^="qr_"]) > button:hover {{
+.main [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(6)) .stButton > button:hover {{
     background: #4E5BA6 !important;
     border-color: #4E5BA6 !important;
     color: #ffffff !important;
-    box-shadow: 0 2px 4px rgba(78,91,166,0.2) !important;
+    box-shadow: 0 2px 4px rgba(78,91,166,0.25) !important;
 }}
 
 /* ── Misc ── */
@@ -682,13 +689,13 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     letter-spacing: 0.09em !important;
 }}
 
-/* ── Refresh icon button (no background, matches date input height) ── */
+/* ── Refresh icon button (3-col row, last column) ── */
 .refresh-icon-spacer {{
     height: 1.6rem;
 }}
-.main div.stButton:has(button[key="force_refresh_btn"]) > button,
-.main div.stButton:has(button[key="force_refresh_btn"]) > button:focus,
-.main div.stButton:has(button[key="force_refresh_btn"]) > button:active {{
+.main [data-testid="stHorizontalBlock"]:has(.stDateInput) [data-testid="column"]:last-child .stButton > button,
+.main [data-testid="stHorizontalBlock"]:has(.stDateInput) [data-testid="column"]:last-child .stButton > button:focus,
+.main [data-testid="stHorizontalBlock"]:has(.stDateInput) [data-testid="column"]:last-child .stButton > button:active {{
     background: none !important;
     background-color: transparent !important;
     border: none !important;
@@ -705,7 +712,7 @@ div[role="radiogroup"] {{ gap: 0.15rem !important; }}
     border-radius: 6px !important;
     transition: color 0.15s !important;
 }}
-.main div.stButton:has(button[key="force_refresh_btn"]) > button:hover {{
+.main [data-testid="stHorizontalBlock"]:has(.stDateInput) [data-testid="column"]:last-child .stButton > button:hover {{
     color: #4E5BA6 !important;
     background: none !important;
     background-color: transparent !important;
