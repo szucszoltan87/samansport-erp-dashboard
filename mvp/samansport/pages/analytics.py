@@ -65,8 +65,8 @@ class AnalyticsState(AppState):
     mov_net: str = "0 db"
     mov_types: str = "0"
 
-    # Data table (list of dicts for rx.data_table)
-    table_data: list[dict] = []
+    # Data table (list of lists for rx.data_table)
+    table_data: list[list] = []
     table_columns: list[str] = []
     mov_table_data: list[dict] = []
 
@@ -211,7 +211,7 @@ class AnalyticsState(AppState):
         cols += ["Mennyiség", "Bruttó érték", "Nettó érték"]
         available = [c for c in cols if c in table_df.columns]
         self.table_columns = available
-        self.table_data = table_df[available].head(1000).to_dict("records")
+        self.table_data = table_df[available].head(1000).values.tolist()
 
         # Update CSV
         start = (self.date_start or "").replace("-", ".")
