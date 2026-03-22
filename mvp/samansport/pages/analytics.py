@@ -1,10 +1,12 @@
-"""Analytics page — Sales and Warehouse Movements analysis."""
+"""Analytics page — Sales, Warehouse Movements, and Inventory Monitor analysis."""
 
 import reflex as rx
 import plotly.graph_objects as go
 import pandas as pd
 import sys
 import os
+import csv
+import io
 from datetime import datetime, date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -371,6 +373,145 @@ class AnalyticsState(AppState):
 
 
 # ---------------------------------------------------------------------------
+# Inventory Monitor State
+# ---------------------------------------------------------------------------
+class InventoryMonitorState(AppState):
+    """State for the Készlet Monitor tab."""
+
+    lookback_years: int = 2
+    lead_time: int = 3
+    service_level: float = 0.95
+    monitor_data: list[dict] = []
+    monitor_loading: bool = False
+    has_monitor_data: bool = False
+    monitor_csv_data: str = ""
+    monitor_csv_filename: str = ""
+
+    @rx.var
+    def total_monitored(self) -> int:
+        return len(self.monitor_data)
+
+    @rx.var
+    def needs_reorder(self) -> int:
+        return len([r for r in self.monitor_data if r.get("status") == "RENDELJ"])
+
+    @rx.var
+    def is_ok(self) -> int:
+        return len([r for r in self.monitor_data if r.get("status") == "OK"])
+
+    @rx.var
+    def rop_col_label(self) -> str:
+        return f"ROP ({self.lead_time}h)"
+
+    @rx.var
+    def monitor_table_data(self) -> list[list]:
+        """Build table rows from monitor_data, formatted for display."""
+        rows = []
+        lt = self.lead_time
+        for r in self.monitor_data:
+            stab = r.get("stability", "")
+            rop_key = f"rop_{lt}m"
+            rop_val = r.get(rop_key, 0)
+            jav = (
+                f"{_fmt_num(r.get('javasolt_1m', 0))} / "
+                f"{_fmt_num(r.get('javasolt_2m', 0))} / "
+                f"{_fmt_num(r.get('javasolt_3m', 0))}"
+            )
+            rows.append([
+                r.get("rank", 0),
+                r.get("cikkszam", ""),
+                r.get("cikknev", ""),
+                stab,
+                _fmt_num(r.get("month_sold_qty", 0)),
+                _fmt_num(r.get("month_remaining_qty", 0)),
+                _fmt_num(r.get("forecast_m1", 0)),
+                _fmt_num(r.get("forecast_m2", 0)),
+                _fmt_num(r.get("forecast_m3", 0)),
+                _fmt_num(r.get("on_inventory", 0)),
+                _fmt_num(r.get("inventory_position", 0)),
+                _fmt_num(rop_val),
+                jav,
+                r.get("status", ""),
+            ])
+        return rows
+
+    async def load_monitor_data(self):
+        self.monitor_loading = True
+        yield
+        try:
+            import tharanis_client as api
+            data = api.get_inventory_monitor(
+                lookback_years=self.lookback_years,
+                top_n=100,
+                lead_time=self.lead_time,
+                service_level=self.service_level,
+            )
+            self.monitor_data = data
+            self.has_monitor_data = len(data) > 0
+            self._build_csv()
+        except Exception as e:
+            print(f"Inventory monitor load error: {e}")
+            self.has_monitor_data = False
+        finally:
+            self.monitor_loading = False
+
+    def set_lookback(self, years: str):
+        self.lookback_years = int(years)
+        return self.load_monitor_data()
+
+    def set_lead_time(self, months: str):
+        self.lead_time = int(months)
+        return self.load_monitor_data()
+
+    def set_service_level(self, level: str):
+        self.service_level = float(level)
+        return self.load_monitor_data()
+
+    def _build_csv(self):
+        if not self.monitor_data:
+            self.monitor_csv_data = ""
+            return
+        buf = io.StringIO()
+        cols = [
+            "#", "Cikkszám", "Terméknév", "Stabilitás",
+            "Havi eladás", "Havi hátra",
+            "H+1", "H+2", "H+3",
+            "Készlet", "IP",
+            "ROP 1h", "ROP 2h", "ROP 3h",
+            "Javasolt 1h", "Javasolt 2h", "Javasolt 3h",
+            "Státusz",
+        ]
+        writer = csv.writer(buf)
+        writer.writerow(cols)
+        for r in self.monitor_data:
+            writer.writerow([
+                r.get("rank"), r.get("cikkszam"), r.get("cikknev"),
+                r.get("stability"),
+                r.get("month_sold_qty"), r.get("month_remaining_qty"),
+                r.get("forecast_m1"), r.get("forecast_m2"),
+                r.get("forecast_m3"),
+                r.get("on_inventory"), r.get("inventory_position"),
+                r.get("rop_1m"), r.get("rop_2m"), r.get("rop_3m"),
+                r.get("javasolt_1m"), r.get("javasolt_2m"), r.get("javasolt_3m"),
+                r.get("status"),
+            ])
+        self.monitor_csv_data = buf.getvalue()
+        today = date.today().isoformat()
+        self.monitor_csv_filename = f"samansport_keszlet_riport_{today}.csv"
+
+
+def _fmt_num(val) -> str:
+    """Format number with space as thousands separator, Hungarian style."""
+    try:
+        n = float(val)
+        if n == int(n):
+            return f"{int(n):,}".replace(",", " ")
+        return f"{n:,.1f}".replace(",", " ")
+    except (ValueError, TypeError):
+        return str(val)
+
+
+# ---------------------------------------------------------------------------
 # Helper: metric card component
 # ---------------------------------------------------------------------------
 def _metric_card(label: str, value: rx.Var) -> rx.Component:
@@ -672,6 +813,262 @@ def _movements_tab() -> rx.Component:
 
 
 # ---------------------------------------------------------------------------
+# Inventory Monitor tab
+# ---------------------------------------------------------------------------
+def _stability_badge(value: rx.Var) -> rx.Component:
+    """Colored badge for stability classification."""
+    return rx.cond(
+        value == "stable",
+        rx.badge("stabil", color_scheme="green", size="1"),
+        rx.cond(
+            value == "light_volatile",
+            rx.badge("ingadozó", color_scheme="yellow", size="1"),
+            rx.badge("volatilis", color_scheme="red", size="1"),
+        ),
+    )
+
+
+def _status_badge(value: rx.Var) -> rx.Component:
+    """Colored badge for order status."""
+    return rx.cond(
+        value == "RENDELJ",
+        rx.badge("RENDELJ", color_scheme="red", size="1"),
+        rx.badge("OK", color_scheme="green", size="1"),
+    )
+
+
+def _monitor_kpi(label: str, value: rx.Var, color: str = COLORS["charcoal"]) -> rx.Component:
+    return rx.box(
+        rx.text(
+            label,
+            font_size="0.65rem",
+            color=COLORS["muted"],
+            font_weight="600",
+            text_transform="uppercase",
+            letter_spacing="0.03em",
+        ),
+        rx.text(value, font_weight="700", font_size="1.1rem", color=color),
+        padding="0.75rem 1rem",
+        background="white",
+        border_radius="8px",
+        border=f"1px solid {COLORS['100']}",
+    )
+
+
+def _monitor_table_row(row: rx.Var) -> rx.Component:
+    """Render a single row of the inventory monitor table."""
+    return rx.table.row(
+        rx.table.cell(row[0], width="40px"),                           # rank
+        rx.table.cell(row[1], width="70px", font_size="0.75rem"),      # cikkszam
+        rx.table.cell(row[2], min_width="200px"),                      # cikknev
+        rx.table.cell(_stability_badge(row[3]), width="75px"),         # stability
+        rx.table.cell(row[4], width="55px", text_align="right"),       # month_sold
+        rx.table.cell(row[5], width="60px", text_align="right"),       # month_remaining
+        rx.table.cell(row[6], width="45px", text_align="right"),       # H+1
+        rx.table.cell(row[7], width="45px", text_align="right"),       # H+2
+        rx.table.cell(row[8], width="45px", text_align="right"),       # H+3
+        rx.table.cell(row[9], width="60px", text_align="right", font_weight="600"),  # inventory
+        rx.table.cell(row[10], width="50px", text_align="right"),      # IP
+        rx.table.cell(row[11], width="50px", text_align="right"),      # ROP
+        rx.table.cell(row[12], width="100px", text_align="right", font_size="0.75rem"),  # jav
+        rx.table.cell(_status_badge(row[13]), width="70px"),           # status
+    )
+
+
+def _monitor_tab() -> rx.Component:
+    return rx.box(
+        rx.cond(
+            ~InventoryMonitorState.has_monitor_data,
+            # No data loaded — show controls + load button
+            rx.vstack(
+                # Controls
+                _monitor_controls(),
+                rx.center(
+                    rx.vstack(
+                        rx.button(
+                            "Készlet monitor betöltése",
+                            on_click=InventoryMonitorState.load_monitor_data,
+                            loading=InventoryMonitorState.monitor_loading,
+                            color_scheme="indigo",
+                            size="3",
+                        ),
+                        rx.text(
+                            "Kattintson a gombra a készletfigyelő adatok betöltéséhez.",
+                            color=COLORS["muted"],
+                            font_size="0.8rem",
+                        ),
+                        align="center",
+                        spacing="3",
+                        padding="3rem",
+                        background="white",
+                        border_radius="10px",
+                        border=f"1px solid {COLORS['100']}",
+                    ),
+                ),
+                width="100%",
+                spacing="4",
+            ),
+            # Data loaded
+            rx.vstack(
+                # Controls row
+                _monitor_controls(),
+                # KPI summary row
+                rx.grid(
+                    _monitor_kpi(
+                        "MONITOROZOTT",
+                        InventoryMonitorState.total_monitored,
+                    ),
+                    _monitor_kpi(
+                        "RENDELÉST IGÉNYEL",
+                        InventoryMonitorState.needs_reorder,
+                        color=COLORS["red"],
+                    ),
+                    _monitor_kpi(
+                        "OK",
+                        InventoryMonitorState.is_ok,
+                        color=COLORS["green"],
+                    ),
+                    columns="3",
+                    spacing="3",
+                    width="100%",
+                ),
+                # Data table
+                rx.box(
+                    rx.table.root(
+                        rx.table.header(
+                            rx.table.row(
+                                rx.table.column_header_cell("#", width="40px"),
+                                rx.table.column_header_cell("Cikksz.", width="70px"),
+                                rx.table.column_header_cell("Terméknév", min_width="200px"),
+                                rx.table.column_header_cell("Stab.", width="75px"),
+                                rx.table.column_header_cell("Havi el.", width="55px"),
+                                rx.table.column_header_cell("Havi hátra", width="60px"),
+                                rx.table.column_header_cell("H+1", width="45px"),
+                                rx.table.column_header_cell("H+2", width="45px"),
+                                rx.table.column_header_cell("H+3", width="45px"),
+                                rx.table.column_header_cell("Készlet", width="60px"),
+                                rx.table.column_header_cell("IP", width="50px"),
+                                rx.table.column_header_cell(
+                                    InventoryMonitorState.rop_col_label,
+                                    width="50px",
+                                ),
+                                rx.table.column_header_cell("Jav 1h/2h/3h", width="100px"),
+                                rx.table.column_header_cell("St.", width="70px"),
+                            ),
+                        ),
+                        rx.table.body(
+                            rx.foreach(
+                                InventoryMonitorState.monitor_table_data,
+                                _monitor_table_row,
+                            ),
+                        ),
+                        width="100%",
+                        size="1",
+                        variant="surface",
+                    ),
+                    background="white",
+                    border_radius="10px",
+                    padding="0.5rem",
+                    border=f"1px solid {COLORS['100']}",
+                    overflow_x="auto",
+                    max_height="70vh",
+                    overflow_y="auto",
+                    font_size="0.8rem",
+                ),
+                # CSV export
+                rx.cond(
+                    InventoryMonitorState.monitor_csv_data != "",
+                    rx.button(
+                        "CSV Exportálás",
+                        on_click=rx.download(
+                            data=InventoryMonitorState.monitor_csv_data,
+                            filename=InventoryMonitorState.monitor_csv_filename,
+                        ),
+                        variant="outline",
+                        size="2",
+                    ),
+                    rx.fragment(),
+                ),
+                width="100%",
+                spacing="4",
+            ),
+        ),
+    )
+
+
+def _monitor_controls() -> rx.Component:
+    """Controls row for inventory monitor parameters."""
+    return rx.hstack(
+        # Lookback period
+        rx.vstack(
+            rx.text(
+                "IDŐSZAK",
+                font_size="0.7rem",
+                font_weight="600",
+                color=COLORS["muted"],
+                text_transform="uppercase",
+            ),
+            rx.hstack(
+                *[
+                    _toggle_btn(
+                        f"{y} év",
+                        InventoryMonitorState.set_lookback(str(y)),
+                        InventoryMonitorState.lookback_years == y,
+                    )
+                    for y in [1, 2, 3, 5]
+                ],
+                spacing="1",
+            ),
+        ),
+        # Lead time
+        rx.vstack(
+            rx.text(
+                "ÁTFUTÁSI IDŐ",
+                font_size="0.7rem",
+                font_weight="600",
+                color=COLORS["muted"],
+                text_transform="uppercase",
+            ),
+            rx.hstack(
+                *[
+                    _toggle_btn(
+                        f"{m} hó",
+                        InventoryMonitorState.set_lead_time(str(m)),
+                        InventoryMonitorState.lead_time == m,
+                    )
+                    for m in [1, 2, 3]
+                ],
+                spacing="1",
+            ),
+        ),
+        # Service level
+        rx.vstack(
+            rx.text(
+                "KISZOLGÁLÁSI SZINT",
+                font_size="0.7rem",
+                font_weight="600",
+                color=COLORS["muted"],
+                text_transform="uppercase",
+            ),
+            rx.hstack(
+                *[
+                    _toggle_btn(
+                        f"{int(sl * 100)}%",
+                        InventoryMonitorState.set_service_level(str(sl)),
+                        InventoryMonitorState.service_level == sl,
+                    )
+                    for sl in [0.90, 0.95, 0.99]
+                ],
+                spacing="1",
+            ),
+        ),
+        spacing="6",
+        width="100%",
+        align="end",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Page
 # ---------------------------------------------------------------------------
 @rx.page(route="/analytics", title="Analitika | SamanSport")
@@ -692,6 +1089,12 @@ def analytics() -> rx.Component:
                 AnalyticsState.active_tab == "Mozgástörténet",
                 size="2",
             ),
+            _toggle_btn(
+                "Készlet Monitor",
+                AnalyticsState.set_tab("Készlet Monitor"),
+                AnalyticsState.active_tab == "Készlet Monitor",
+                size="2",
+            ),
             spacing="2",
             margin_bottom="1rem",
         ),
@@ -705,6 +1108,12 @@ def analytics() -> rx.Component:
         rx.cond(
             AnalyticsState.active_tab == "Mozgástörténet",
             _movements_tab(),
+            rx.fragment(),
+        ),
+        # Inventory Monitor tab content
+        rx.cond(
+            AnalyticsState.active_tab == "Készlet Monitor",
+            _monitor_tab(),
             rx.fragment(),
         ),
         width="100%",

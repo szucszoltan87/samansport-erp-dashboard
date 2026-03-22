@@ -742,6 +742,49 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
         )
 
 
+_TENANT_UUID = "dd98e7b4-65df-43a4-bfd0-4f903a8c2f46"  # samansport
+
+
+def get_inventory_monitor(
+    lookback_years: int = 2,
+    top_n: int = 100,
+    lead_time: int = 3,
+    service_level: float = 0.95,
+    tenant_id: str = "samansport",
+) -> list[dict]:
+    """Call the inventory monitor SQL function via Supabase RPC.
+
+    Uses public.compute_inventory_monitor which takes a UUID tenant_id
+    and service_level directly (handles z-score mapping internally).
+    Column names in the response are prefixed with ``out_`` — we strip that.
+    """
+    sb = _get_supabase()
+    if sb is None:
+        logger.warning("Supabase not available for inventory monitor")
+        return []
+
+    try:
+        result = sb.rpc(
+            "compute_inventory_monitor",
+            {
+                "p_tenant_id": _TENANT_UUID,
+                "p_lookback_years": lookback_years,
+                "p_top_n": top_n,
+                "p_service_level": service_level,
+                "p_lead_time_months": lead_time,
+            },
+        ).execute()
+        rows = result.data or []
+        # Strip "out_" prefix from column names to match UI expectations
+        return [
+            {k.removeprefix("out_"): v for k, v in row.items()}
+            for row in rows
+        ]
+    except Exception:
+        logger.exception("Failed to call compute_inventory_monitor")
+        return []
+
+
 def get_last_sync_time() -> str | None:
     """Return the most recent last_synced_at from sync_metadata, or None."""
     if not _USE_SUPABASE:
