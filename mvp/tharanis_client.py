@@ -562,7 +562,7 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
     # Try Supabase first (unless force_refresh is set)
     if _USE_SUPABASE and not force_refresh:
         df = _supabase_get_sales(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     # If force_refresh with Supabase, trigger sync then read
@@ -572,7 +572,7 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
         })
         # Still try to read current data from Supabase
         df = _supabase_get_sales(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     # Fallback: direct SOAP call
@@ -686,7 +686,7 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
     # Try Supabase first
     if _USE_SUPABASE and not force_refresh:
         df = _supabase_get_movements(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     if _USE_SUPABASE and force_refresh:
@@ -694,7 +694,7 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
             "start_date": start_date, "end_date": end_date, "cikkszam": cikkszam
         })
         df = _supabase_get_movements(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     # Fallback: direct SOAP call
