@@ -589,7 +589,7 @@ def _movements_tab() -> rx.Component:
 # Page
 # ---------------------------------------------------------------------------
 @rx.page(route="/analytics", title="Analitika | SamanSport")
-@template
+@template(on_date_change=AnalyticsState.load_sales_data)
 def analytics() -> rx.Component:
     return rx.box(
         # Tab selector

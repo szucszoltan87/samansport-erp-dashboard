@@ -320,7 +320,7 @@ def _period_toggle() -> rx.Component:
 # ---------------------------------------------------------------------------
 
 @rx.page(route="/", title="Dashboard | SamanSport", on_load=[AppState.check_connection_and_sync, DashboardState.load_dashboard_data])
-@template
+@template(on_date_change=DashboardState.load_dashboard_data)
 def dashboard() -> rx.Component:
     return rx.box(
         # Loading overlay

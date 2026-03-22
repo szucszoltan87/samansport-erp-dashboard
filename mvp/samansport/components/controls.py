@@ -3,17 +3,22 @@
 import reflex as rx
 
 from samansport.state import AppState
-from samansport.styles import COLORS, PRESET_PILL_STYLE, PRESET_PILL_ACTIVE_STYLE, TRANSITION
+from samansport.styles import COLORS, TRANSITION
 
 PRESETS = ["Ma", "7 nap", "30 nap", "Idén", "Tavaly"]
 
 
-def _preset_pill(label: str) -> rx.Component:
+def _preset_pill(label: str, on_date_change=None) -> rx.Component:
     """Single date-range preset pill button."""
     is_active = AppState.active_preset == label
+    # Chain: first update dates, then reload data
+    if on_date_change is not None:
+        on_click = [AppState.set_preset(label), on_date_change]
+    else:
+        on_click = AppState.set_preset(label)
     return rx.button(
         label,
-        on_click=AppState.set_preset(label),
+        on_click=on_click,
         background=rx.cond(is_active, COLORS["accent"], COLORS["white"]),
         color=rx.cond(is_active, COLORS["white"], COLORS["700"]),
         border=rx.cond(
@@ -34,8 +39,12 @@ def _preset_pill(label: str) -> rx.Component:
     )
 
 
-def _date_input(label: str, value: rx.Var[str], on_change) -> rx.Component:
+def _date_input(label: str, value: rx.Var[str], on_change, on_date_change=None) -> rx.Component:
     """Labelled date input field."""
+    if on_date_change is not None:
+        handler = [on_change, on_date_change]
+    else:
+        handler = on_change
     return rx.box(
         rx.text(
             label,
@@ -47,7 +56,7 @@ def _date_input(label: str, value: rx.Var[str], on_change) -> rx.Component:
         rx.input(
             type="date",
             value=value,
-            on_change=on_change,
+            on_change=handler,
             border=f"1px solid {COLORS['300']}",
             border_radius="8px",
             padding="0.35rem 0.5rem",
@@ -58,8 +67,12 @@ def _date_input(label: str, value: rx.Var[str], on_change) -> rx.Component:
     )
 
 
-def controls() -> rx.Component:
-    """Header area: greeting, date presets, date pickers, refresh."""
+def controls(on_date_change=None) -> rx.Component:
+    """Header area: greeting, date presets, date pickers, refresh.
+
+    Args:
+        on_date_change: Optional event handler to fire after any date/preset change.
+    """
     return rx.box(
         # Top row — greeting + date
         rx.hstack(
@@ -97,7 +110,7 @@ def controls() -> rx.Component:
         rx.hstack(
             # Preset pills
             rx.hstack(
-                *[_preset_pill(p) for p in PRESETS],
+                *[_preset_pill(p, on_date_change=on_date_change) for p in PRESETS],
                 spacing="2",
                 align_items="center",
                 flex_wrap="wrap",
@@ -106,8 +119,8 @@ def controls() -> rx.Component:
             rx.spacer(),
             # Date pickers
             rx.hstack(
-                _date_input("Kezdő dátum", AppState.date_start, AppState.set_date_start),
-                _date_input("Záró dátum", AppState.date_end, AppState.set_date_end),
+                _date_input("Kezdő dátum", AppState.date_start, AppState.set_date_start, on_date_change),
+                _date_input("Záró dátum", AppState.date_end, AppState.set_date_end, on_date_change),
                 spacing="3",
                 align_items="flex-end",
             ),
