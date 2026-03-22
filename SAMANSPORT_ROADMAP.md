@@ -57,7 +57,7 @@
 
 ### 1.1 Code Structure & Organization
 
-- [ ] **1.1.1** Create a proper Python package structure:
+- [ ✅] **1.1.1** Create a proper Python package structure:
   ```
   samansport/
     __init__.py
@@ -73,11 +73,11 @@
       analytics.py      # Analytics page logic (Ertekesites + Mozgastortenet tabs)
   app.py                # Streamlit entry point — thin, just imports pages
   ```
-- [ ] **1.1.2** Extract all Plotly chart-building code from `app.py` into `charts.py`
-- [ ] **1.1.3** Extract all caching logic into `cache.py`
-- [ ] **1.1.4** Extract config/constants (API URLs, TTLs, color palette, date formats) into `config.py`
-- [ ] **1.1.5** Move each page's rendering logic into its own module under `pages/`
-- [ ] **1.1.6** Ensure `app.py` is under 100 lines — it should only set up the Streamlit app shell and route to pages
+- [ ✅] **1.1.2** Extract all Plotly chart-building code from `app.py` into `charts.py`
+- [ ✅] **1.1.3** Extract all caching logic into `cache.py`
+- [ ✅] **1.1.4** Extract config/constants (API URLs, TTLs, color palette, date formats) into `config.py`
+- [ ✅] **1.1.5** Move each page's rendering logic into its own module under `pages/`
+- [✅ ] **1.1.6** Ensure `app.py` is under 100 lines — it should only set up the Streamlit app shell and route to pages
 
 > 🧠 **Claude Code prompt**:
 > *"Refactor mvp/app.py into a clean package structure. Extract chart-building functions into charts.py, caching logic into cache.py, config into config.py, and each page into pages/dashboard.py and pages/analytics.py. Keep app.py as a thin entry point under 100 lines. Preserve all existing functionality — don't change behavior, only structure."*
@@ -92,31 +92,31 @@
 
 ### 1.2 Type Safety & Data Models
 
-- [ ] **1.2.1** Create Pydantic models (or dataclasses) for: `SalesInvoiceLine`, `InventorySnapshot`, `WarehouseMovement`, `Product`, `SyncStatus`
-- [ ] **1.2.2** Add type hints to every function in `tharanis_client.py`
-- [ ] **1.2.3** Add type hints to all chart-building functions
-- [ ] **1.2.4** Run `mypy` or `pyright` and fix any type errors
+- [ ✅] **1.2.1** Create Pydantic models (or dataclasses) for: `SalesInvoiceLine`, `InventorySnapshot`, `WarehouseMovement`, `Product`, `SyncStatus`
+- [ ✅] **1.2.2** Add type hints to every function in `tharanis_client.py`
+- [✅ ] **1.2.3** Add type hints to all chart-building functions
+- [✅ ] **1.2.4** Run `mypy` or `pyright` and fix any type errors
 
 > 🧠 **Claude Code prompt**:
 > *"Create Pydantic models in models.py matching the Supabase schema from BACKEND_ARCHITECTURE.md. Add full type hints to tharanis_client.py and charts.py. Then run mypy and fix any issues."*
 
 ### 1.3 Error Handling & Resilience
 
-- [ ] **1.3.1** Add try/except blocks around all Supabase queries in `tharanis_client.py` with meaningful error messages
-- [ ] **1.3.2** Add try/except around all SOAP fallback calls with timeout handling (10s default)
-- [ ] **1.3.3** Add a user-facing error banner in Streamlit when data fetch fails (not a raw Python traceback)
-- [ ] **1.3.4** Handle empty data gracefully — show "Nincs adat a megadott időszakra" (No data for the given period) instead of crashing
-- [ ] **1.3.5** Add connection health check on app startup — verify Supabase is reachable, show status in sidebar
-- [ ] **1.3.6** Handle edge case: what happens when Edge Function sync fails mid-way? Ensure partial data doesn't corrupt the cache
+- [ ✅] **1.3.1** Add try/except blocks around all Supabase queries in `tharanis_client.py` with meaningful error messages
+- [ ✅] **1.3.2** Add try/except around all SOAP fallback calls with timeout handling (10s default)
+- [ ✅] **1.3.3** Add a user-facing error banner in Streamlit when data fetch fails (not a raw Python traceback)
+- [✅ ] **1.3.4** Handle empty data gracefully — show "Nincs adat a megadott időszakra" (No data for the given period) instead of crashing
+- [✅ ] **1.3.5** Add connection health check on app startup — verify Supabase is reachable, show status in sidebar
+- [✅ ] **1.3.6** Handle edge case: what happens when Edge Function sync fails mid-way? Ensure partial data doesn't corrupt the cache
 
 > 🧠 **Claude Code prompt**:
 > *"Audit tharanis_client.py for unhandled exceptions. Wrap all Supabase calls and SOAP calls in try/except with user-friendly error messages. Add a connection health check function. Handle empty DataFrames in charts.py (show placeholder message, not crash)."*
 
 ### 1.4 Requirements & Dependency Management
 
-- [ ] **1.4.1** Generate `requirements.txt` with pinned versions (`pip freeze > requirements.txt`)
-- [ ] **1.4.2** Add a `pyproject.toml` or `setup.py` if you want a proper installable package
-- [ ] **1.4.3** Document the Node.js / Deno requirements for Edge Functions in a `supabase/README.md`
+- [ ✅] **1.4.1** Generate `requirements.txt` with pinned versions (`pip freeze > requirements.txt`)
+- [ ✅] **1.4.2** Add a `pyproject.toml` or `setup.py` if you want a proper installable package
+- [ ✅] **1.4.3** Document the Node.js / Deno requirements for Edge Functions in a `supabase/README.md`
 
 ---
 
@@ -126,7 +126,7 @@
 
 ### 2.1 Unit Tests
 
-- [ ] **2.1.1** Set up `pytest` and create `tests/` directory structure:
+- [ ✅] **2.1.1** Set up `pytest` and create `tests/` directory structure:
   ```
   tests/
     __init__.py
@@ -137,12 +137,12 @@
     test_utils.py
     test_models.py
   ```
-- [ ] **2.1.2** Write fixtures that create sample DataFrames matching the Supabase schema (sales, inventory, movements, products)
-- [ ] **2.1.3** Test `tharanis_client.py`: mock Supabase responses, test cache-hit path, test stale-trigger path, test SOAP fallback path
-- [ ] **2.1.4** Test `cache.py`: test session cache write/read, test TTL expiry logic, test Parquet disk cache
-- [ ] **2.1.5** Test `charts.py`: each chart function returns a valid Plotly figure given sample data, and returns a placeholder on empty data
-- [ ] **2.1.6** Test `utils.py`: date formatting, Hungarian number formatting, currency display
-- [ ] **2.1.7** Test `models.py`: Pydantic validation accepts correct data, rejects bad data
+- [ ✅] **2.1.2** Write fixtures that create sample DataFrames matching the Supabase schema (sales, inventory, movements, products)
+- [✅ ] **2.1.3** Test `tharanis_client.py`: mock Supabase responses, test cache-hit path, test stale-trigger path, test SOAP fallback path
+- [ ✅] **2.1.4** Test `cache.py`: test session cache write/read, test TTL expiry logic, test Parquet disk cache
+- [ ✅] **2.1.5** Test `charts.py`: each chart function returns a valid Plotly figure given sample data, and returns a placeholder on empty data
+- [✅ ] **2.1.6** Test `utils.py`: date formatting, Hungarian number formatting, currency display
+- [ ✅] **2.1.7** Test `models.py`: Pydantic validation accepts correct data, rejects bad data
 
 > 🧠 **Claude Code prompt**:
 > *"Create a pytest test suite for the samansport package. Start with conftest.py containing fixtures with realistic sample data matching our Supabase schema. Then write tests for tharanis_client.py (mock Supabase with unittest.mock.patch), charts.py (verify Plotly figure output), and utils.py. Aim for >80% coverage on the client and utils modules."*
@@ -170,31 +170,31 @@
 
 ### 3.1 Secrets Management
 
-- [ ] **3.1.1** Audit `.env` for any secrets that shouldn't be there (e.g., service role key in frontend)
-- [ ] **3.1.2** Ensure `.env` is in `.gitignore` (verify it's not committed in any historical commit)
-- [ ] **3.1.3** Create `.env.example` with placeholder values and comments
-- [ ] **3.1.4** Move SOAP credentials (username/password) to Supabase Vault or Edge Function secrets — never expose them to the frontend
-- [ ] **3.1.5** Ensure the frontend only uses `SUPABASE_ANON_KEY` (not the service role key)
-- [ ] **3.1.6** Add Supabase Row Level Security (RLS) policies on all entity tables — at minimum, read-only for the anon key
+- [✅] **3.1.1** Audit `.env` for any secrets that shouldn't be there (e.g., service role key in frontend)
+- [✅] **3.1.2** Ensure `.env` is in `.gitignore` (verify it's not committed in any historical commit)
+- [✅] **3.1.3** Create `.env.example` with placeholder values and comments
+- [⚠️] **3.1.4** Move SOAP credentials (username/password) to Supabase Vault or Edge Function secrets — never expose them to the frontend
+- [✅  **3.1.5** Ensure the frontend only uses `SUPABASE_ANON_KEY` (not the service role key)
+- [✅] **3.1.6** Add Supabase Row Level Security (RLS) policies on all entity tables — at minimum, read-only for the anon key
 
 > 🧠 **Claude Code prompt**:
 > *"Audit the entire codebase for security issues. Check: (1) Are SOAP credentials exposed to the frontend? (2) Is the Supabase service role key used anywhere in Python? (3) Is .env in .gitignore? (4) Are there any hardcoded API keys? Generate a security report with findings and fixes."*
 
 ### 3.2 Supabase RLS & Permissions
 
-- [ ] **3.2.1** Write RLS policies: `anon` role gets SELECT-only on `sales_invoice_lines`, `inventory_snapshot`, `warehouse_movements`, `products`
-- [ ] **3.2.2** Write RLS policy: `anon` role gets SELECT-only on `sync_metadata` (for freshness checks)
-- [ ] **3.2.3** Write RLS policy: `service_role` (used by Edge Functions) gets full CRUD
-- [ ] **3.2.4** Test: confirm the anon key cannot INSERT/UPDATE/DELETE
-- [ ] **3.2.5** Create a new Supabase migration: `005_enable_rls.sql`
+- [✅] **3.2.1** Write RLS policies: `anon` role gets SELECT-only on `sales_invoice_lines`, `inventory_snapshot`, `warehouse_movements`, `products`
+- [✅] **3.2.2** Write RLS policy: `anon` role gets SELECT-only on `sync_metadata` (for freshness checks)
+- [✅] **3.2.3** Write RLS policy: `service_role` (used by Edge Functions) gets full CRUD
+- [✅] **3.2.4** Test: confirm the anon key cannot INSERT/UPDATE/DELETE
+- [✅] **3.2.5** Create a new Supabase migration: `005_enable_rls.sql`
 
 > 🧠 **Claude Code prompt**:
 > *"Write a Supabase migration file 005_enable_rls.sql that enables Row Level Security on all entity tables (sales_invoice_lines, inventory_snapshot, warehouse_movements, products, sync_metadata, entity_config). Add policies: anon can SELECT only, service_role can do everything."*
 
 ### 3.3 Input Validation & Rate Limiting
 
-- [ ] **3.3.1** Validate date range inputs in `tharanis_client.py` (no future dates, start ≤ end, max range 5 years)
-- [ ] **3.3.2** Sanitize SKU inputs before passing to Supabase queries (prevent SQL injection via PostgREST)
+- [✅] **3.3.1** Validate date range inputs in `tharanis_client.py` (no future dates, start ≤ end, max range 5 years)
+- [✅] **3.3.2** Sanitize SKU inputs before passing to Supabase queries (prevent SQL injection via PostgREST)
 - [ ] **3.3.3** Add rate limiting to Edge Functions (already have debounce, but add a hard 60 calls/min/IP limit)
 
 ---
@@ -205,11 +205,11 @@
 
 ### 4.1 Frontend Performance
 
-- [ ] **4.1.1** Profile the Streamlit app: which operations take >1s? Use `st.spinner` with Hungarian text for any slow operation
-- [ ] **4.1.2** Use `@st.cache_data` (not the deprecated `@st.cache`) on all data-fetching functions with appropriate TTL
-- [ ] **4.1.3** Lazy-load the Analytics page — don't fetch analytics data until the user navigates there
-- [ ] **4.1.4** Optimize the product selector: use `@st.cache_data` for the 6,500+ product list, cache for 24h
-- [ ] **4.1.5** Add loading skeletons or spinners for every chart that takes >200ms to render
+- [✅] **4.1.1** Profile the Streamlit app: which operations take >1s? Use `st.spinner` with Hungarian text for any slow operation
+- [✅] **4.1.2** Use `@st.cache_data` (not the deprecated `@st.cache`) on all data-fetching functions with appropriate TTL
+- [✅] **4.1.3** Lazy-load the Analytics page — don't fetch analytics data until the user navigates there
+- [✅] **4.1.4** Optimize the product selector: use `@st.cache_data` for the 6,500+ product list, cache for 24h
+- [✅] **4.1.5** Add loading skeletons or spinners for every chart that takes >200ms to render
 - [ ] **4.1.6** Minimize Streamlit reruns: use `st.session_state` to avoid unnecessary recalculations on widget interactions
 
 > 🧠 **Claude Code prompt**:
@@ -217,7 +217,7 @@
 
 ### 4.2 Query Optimization
 
-- [ ] **4.2.1** Review all Supabase queries: are they using the indexes? Add `EXPLAIN ANALYZE` for the 3 most common queries
+- [✅] **4.2.1** Review all Supabase queries: are they using the indexes? Add `EXPLAIN ANALYZE` for the 3 most common queries
 - [ ] **4.2.2** Add composite indexes if missing (e.g., `(fulfillment_date, sku)` on sales)
 - [ ] **4.2.3** For the Top 10 Products chart, consider a materialized view or pre-aggregation instead of computing client-side
 - [ ] **4.2.4** Profile Edge Function cold starts — if >2s, consider warming strategies or reducing bundle size
@@ -225,8 +225,8 @@
 ### 4.3 Data Volume Handling
 
 - [ ] **4.3.1** Test with the full historical dataset (2016–present): does the app still load in <3s?
-- [ ] **4.3.2** Implement server-side pagination for the data tables (don't load 100k+ rows into the browser)
-- [ ] **4.3.3** Add date range guards: warn the user if they select >1 year of data ("Ez sok adatot tölthet be...")
+- [✅] **4.3.2** Implement server-side pagination for the data tables (don't load 100k+ rows into the browser)
+- [✅] **4.3.3** Add date range guards: warn the user if they select >1 year of data ("Ez sok adatot tölthet be...")
 
 ---
 
@@ -236,9 +236,9 @@
 
 ### 5.1 Visual Consistency
 
-- [ ] **5.1.1** Audit the charcoal/orange theme: ensure every chart, table, button, and text follows the same color palette
-- [ ] **5.1.2** Create a `theme.py` with all color constants, font sizes, and shared Plotly layout defaults
-- [ ] **5.1.3** Ensure all charts have consistent axis formatting: Hungarian number format (space as thousands separator), proper date labels
+- [ ✅] **5.1.1** Audit the charcoal/orange theme: ensure every chart, table, button, and text follows the same color palette
+- [ ✅] **5.1.2** Create a `theme.py` with all color constants, font sizes, and shared Plotly layout defaults
+- [ ✅] **5.1.3** Ensure all charts have consistent axis formatting: Hungarian number format (space as thousands separator), proper date labels
 - [ ] **5.1.4** Fix any CSS-injected styles that might break across browsers (test Chrome, Firefox, Safari)
 - [ ] **5.1.5** Add a SamanSport logo to the sidebar (ask client for brand assets, or use a placeholder)
 - [ ] **5.1.6** Ensure mobile-responsive behavior (Streamlit is mostly responsive, but test tables and charts)
@@ -249,18 +249,18 @@
 ### 5.2 UX Improvements
 
 - [ ] **5.2.1** Add breadcrumb or page title showing what the user is looking at (e.g., "Irányítópult / 2024.01.01 – 2024.12.31")
-- [ ] **5.2.2** Add "last synced" timestamp in the sidebar (pulled from `sync_metadata`) with a manual refresh button
-- [ ] **5.2.3** Add tooltips / info icons (`st.info` or `ℹ️`) next to KPI cards explaining what each metric means
-- [ ] **5.2.4** Add keyboard shortcut or button to quickly switch between common date ranges (YTD, Last 30 days, Last quarter, Last year)
+- [✅] **5.2.2** Add "last synced" timestamp in the sidebar (pulled from `sync_metadata`) with a manual refresh button
+- [✅] **5.2.3** Add tooltips / info icons (`st.info` or `ℹ️`) next to KPI cards explaining what each metric means
+- [✅] **5.2.4** Add keyboard shortcut or button to quickly switch between common date ranges (YTD, Last 30 days, Last quarter, Last year)
 - [ ] **5.2.5** Improve empty state: when there's no data, show a friendly illustration or message, not a blank page
-- [ ] **5.2.6** Make the CSV export filename meaningful: `samansport_ertekesites_2024-01-01_2024-12-31.csv`
-- [ ] **5.2.7** Add a "Loading data for the first time, this may take a moment..." message for uncached date ranges
+- [✅] **5.2.6** Make the CSV export filename meaningful: `samansport_ertekesites_2024-01-01_2024-12-31.csv`
+- [✅] **5.2.7** Add a "Loading data for the first time, this may take a moment..." message for uncached date ranges
 
 ### 5.3 Accessibility & Hungarian Localization
 
-- [ ] **5.3.1** Audit all user-facing text: ensure everything is in Hungarian (no stray English labels)
-- [ ] **5.3.2** Use Hungarian date format everywhere: `2024.01.15` not `2024-01-15` or `01/15/2024`
-- [ ] **5.3.3** Use Hungarian number format: `1 234 567 Ft` (space as thousands separator)
+- [✅] **5.3.1** Audit all user-facing text: ensure everything is in Hungarian (no stray English labels)
+- [✅] **5.3.2** Use Hungarian date format everywhere: `2024.01.15` not `2024-01-15` or `01/15/2024`
+- [✅] **5.3.3** Use Hungarian number format: `1 234 567 Ft` (space as thousands separator)
 - [ ] **5.3.4** Ensure chart hover tooltips are in Hungarian
 - [ ] **5.3.5** Test with Hungarian special characters (á, é, í, ó, ö, ő, ú, ü, ű) — no encoding issues
 
