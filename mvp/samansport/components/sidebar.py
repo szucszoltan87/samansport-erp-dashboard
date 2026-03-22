@@ -8,7 +8,11 @@ from samansport.styles import COLORS, TRANSITION
 
 def _nav_item(label: str, icon_tag: str, href: str, page_key: str) -> rx.Component:
     """Single navigation link with active highlight."""
-    is_active = AppState.current_page == page_key
+    # router.page.path is "/" for index, "/analytics" for analytics, etc.
+    if href == "/":
+        is_active = (AppState.router.page.path == "/") | (AppState.router.page.path == "")
+    else:
+        is_active = AppState.router.page.path == href
     return rx.link(
         rx.box(
             rx.icon(tag=icon_tag, size=18, color="inherit"),
