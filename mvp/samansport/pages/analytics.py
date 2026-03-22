@@ -67,6 +67,7 @@ class AnalyticsState(AppState):
 
     # Data table (list of dicts for rx.data_table)
     table_data: list[dict] = []
+    table_columns: list[str] = []
     mov_table_data: list[dict] = []
 
     # CSV download
@@ -104,6 +105,8 @@ class AnalyticsState(AppState):
 
     def set_product(self, product: str):
         self.selected_product = product
+        if self.has_sales_data:
+            self._apply_product_filter()
 
     async def load_sales_data(self):
         """Load sales data from the API."""
@@ -149,38 +152,82 @@ class AnalyticsState(AppState):
                     opts.append(label)
             self.product_options = opts
 
-            # Summary metrics
-            self.summary_quantity = f"{hu_thousands(df['Mennyiség'].sum())} db"
-            self.summary_gross = f"{hu_thousands(df['Bruttó érték'].sum())} HUF"
-            self.summary_net = f"{hu_thousands(df['Nettó érték'].sum())} HUF"
-            self.summary_avg_price = f"{hu_thousands(df['Bruttó ár'].mean())} HUF"
-
-            # Build chart
-            self._rebuild_sales_chart()
-
-            # Build table data (list of dicts for serialization)
-            table_df = df.copy()
-            table_df["kelt"] = table_df["kelt"].dt.strftime("%Y.%m.%d")
-            self.table_data = table_df.head(1000).to_dict("records")
-
-            # CSV
-            csv_bytes = table_df.to_csv(index=False)
-            self.csv_data = csv_bytes
-            self.csv_filename = f"samansport_ertekesites_osszes_{start}_{end}.csv"
-
             self.has_sales_data = True
+
+            # Build chart, summary, table for current product filter
+            self._apply_product_filter()
         except Exception as e:
             print(f"Sales load error: {e}")
             self.has_sales_data = False
         finally:
             self.is_loading_sales = False
 
+    def _get_filtered_df(self) -> pd.DataFrame:
+        """Return sales df filtered by selected product."""
+        from helpers import find_sku_col
+
+        df = self._sales_df
+        if df is None or df.empty:
+            return df
+        if self.selected_product == "— Összes termék —":
+            return df
+        # Extract SKU from "SKU  –  Name" label
+        sku = self.selected_product.split("  –  ")[0].strip()
+        sc = find_sku_col(df)
+        if sc:
+            filtered = df[df[sc] == sku]
+            return filtered if not filtered.empty else df
+        return df
+
+    def _apply_product_filter(self):
+        """Re-filter data, rebuild chart, summary and table for selected product."""
+        from theme import hu_thousands
+        from helpers import find_sku_col, find_name_col
+
+        df = self._get_filtered_df()
+        if df is None or df.empty:
+            return
+
+        # Update summary metrics for filtered data
+        self.summary_quantity = f"{hu_thousands(df['Mennyiség'].sum())} db"
+        self.summary_gross = f"{hu_thousands(df['Bruttó érték'].sum())} HUF"
+        self.summary_net = f"{hu_thousands(df['Nettó érték'].sum())} HUF"
+        self.summary_avg_price = f"{hu_thousands(df['Bruttó ár'].mean())} HUF"
+
+        # Rebuild chart
+        self._rebuild_sales_chart()
+
+        # Rebuild table
+        table_df = df.copy()
+        table_df["kelt"] = table_df["kelt"].dt.strftime("%Y.%m.%d")
+        sc = find_sku_col(table_df)
+        nc = find_name_col(table_df)
+        # Build display table with selected columns
+        cols = ["kelt"]
+        if sc:
+            cols.append(sc)
+        if nc:
+            cols.append(nc)
+        cols += ["Mennyiség", "Bruttó érték", "Nettó érték"]
+        available = [c for c in cols if c in table_df.columns]
+        self.table_columns = available
+        self.table_data = table_df[available].head(1000).to_dict("records")
+
+        # Update CSV
+        start = (self.date_start or "").replace("-", ".")
+        end = (self.date_end or "").replace("-", ".")
+        sku_part = "osszes"
+        if self.selected_product != "— Összes termék —":
+            sku_part = self.selected_product.split("  –  ")[0].strip().replace("/", "-")
+        self.csv_data = table_df[available].to_csv(index=False)
+        self.csv_filename = f"samansport_ertekesites_{sku_part}_{start}_{end}.csv"
+
     def _rebuild_sales_chart(self):
         """Rebuild the sales chart based on current metric/period/chart_type."""
         import plotly.graph_objects as go
         from helpers import period_key
 
-        df = self._sales_df
+        df = self._get_filtered_df()
         if df is None or df.empty:
             return
 
@@ -496,6 +543,33 @@ def _sales_tab() -> rx.Component:
                     spacing="3",
                     width="100%",
                     margin_bottom="1rem",
+                ),
+                # Data table
+                rx.cond(
+                    AnalyticsState.table_data.length() > 0,
+                    rx.box(
+                        rx.text(
+                            "Tranzakciók",
+                            font_weight="700",
+                            font_size="0.85rem",
+                            margin_bottom="0.5rem",
+                            color=COLORS["charcoal"],
+                        ),
+                        rx.data_table(
+                            data=AnalyticsState.table_data,
+                            columns=AnalyticsState.table_columns,
+                            pagination=True,
+                            search=True,
+                            sort=True,
+                        ),
+                        background="white",
+                        border_radius="10px",
+                        padding="1rem",
+                        border=f"1px solid {COLORS['100']}",
+                        margin_bottom="1rem",
+                        overflow="auto",
+                    ),
+                    rx.fragment(),
                 ),
                 # CSV download button
                 rx.cond(
