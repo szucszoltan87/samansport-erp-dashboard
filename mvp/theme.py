@@ -185,33 +185,78 @@ section[data-testid="stSidebar"] ul[data-testid="stSidebarNavItems"],
 section[data-testid="stSidebar"] nav {{ display: none !important; }}
 
 /* ── Sidebar frame ── */
-section[data-testid="stSidebar"] {{
+section[data-testid="stSidebar"][aria-expanded="true"] {{
     width: {_sb_w} !important;
     min-width: {_sb_w} !important;
     max-width: {_sb_w} !important;
-    transition: width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease;
 }}
 section[data-testid="stSidebar"] > div {{
     background: #363F72 !important;
     padding: 0 !important;
     border-right: none !important;
-    width: {_sb_w} !important;
     overflow: hidden !important;
     height: 100vh !important;
-    transition: width 0.2s ease;
 }}
-/* Hide EVERY native sidebar chrome button */
+/* Hide native sidebar chrome – keep in DOM so JS .click() works */
 section[data-testid="stSidebar"] [data-testid*="Collapse"],
 section[data-testid="stSidebar"] [data-testid*="collapse"],
-[data-testid="collapsedControl"],
-[data-testid*="baseButton-header"],
 section[data-testid="stSidebar"] > div > button {{
-    display: none !important;
+    opacity: 0 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}}
+/* Hide only the sidebar's own collapse button (not toolbar buttons) */
+section[data-testid="stSidebar"] button[data-testid="baseButton-header"] {{
+    opacity: 0 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}}
+/* Expand button – visible when sidebar is collapsed */
+[data-testid="collapsedControl"] {{
+    position: fixed !important;
+    top: 0.6rem !important;
+    left: 0.5rem !important;
+    z-index: 999 !important;
+    background: #363F72 !important;
+    border-radius: 8px !important;
+    padding: 0.4rem !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
+}}
+[data-testid="collapsedControl"] button {{
+    opacity: 1 !important;
+    position: static !important;
+    pointer-events: auto !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    color: #D5D9EB !important;
+}}
+[data-testid="collapsedControl"] svg {{
+    width: 20px !important;
+    height: 20px !important;
+}}
+[data-testid="collapsedControl"]:hover {{
+    background: #4E5BA6 !important;
 }}
 [data-testid="stSidebarUserContent"] {{
     padding: 0 !important;
     height: 100% !important;
 }}
+
+/* ── Hide components.html iframe containers in sidebar ── */
+[data-testid="stSidebar"] iframe {{ display: none !important; }}
+[data-testid="stSidebar"] .element-container:has(iframe) {{ height: 0 !important; overflow: hidden !important; }}
 
 /* ── Sidebar: zero gaps between elements ── */
 [data-testid="stSidebar"] .element-container {{ margin: 0 !important; }}
@@ -239,22 +284,6 @@ section[data-testid="stSidebar"] > div > button {{
     transition: background 0.15s;
 }}
 .sb-toggle-icon:hover svg {{ background: rgba(255,255,255,0.1); }}
-/* Toggle button = stButton right after .sb-toggle-icon element */
-[data-testid="stSidebar"] .element-container:has(.sb-toggle-icon) + .element-container div.stButton {{
-    margin-top: -2.1rem !important;
-    margin-bottom: 0 !important;
-    padding: 0 0.75rem !important;
-    position: relative;
-    z-index: 15;
-    height: 2.1rem !important;
-    display: flex !important;
-    justify-content: flex-end !important;
-}}
-[data-testid="stSidebar"] .element-container:has(.sb-toggle-icon) + .element-container div.stButton > button {{
-    width: 2.2rem !important;
-    height: 2.1rem !important;
-}}
-
 /* ── Sidebar nav buttons: transparent, overlaid on HTML nav rows ── */
 [data-testid="stSidebar"] div.stButton {{
     margin-top: -2.1rem !important;

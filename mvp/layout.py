@@ -6,61 +6,55 @@ import logging
 from datetime import datetime, timedelta
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 import tharanis_client as api
-from theme import (
-    svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE,
-    SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH,
-)
+from theme import svg, NAV_ACTIVE_STYLE, NAV_INACTIVE_STYLE
 
 logger = logging.getLogger(__name__)
 
 
-def _inject_sidebar_width_css(collapsed: bool) -> None:
-    """Inject CSS that sets the sidebar width based on collapsed state."""
-    if collapsed:
-        _w = SIDEBAR_COLLAPSED_WIDTH
-        st.markdown(f"""<style>
-section[data-testid="stSidebar"] {{
-    width: {_w} !important; min-width: {_w} !important; max-width: {_w} !important;
-}}
-section[data-testid="stSidebar"] > div {{
-    width: {_w} !important;
-}}
-/* Hide text labels when collapsed */
-.sb-label, .sb-brand-text, .sb-status-block, .sb-bottom-text {{ display: none !important; }}
-/* Centre icons in collapsed mode */
-.sb-nav-row {{ justify-content: center !important; padding: 0.4rem !important; }}
-.sb-bottom-block {{ width: {_w} !important; }}
-.sb-bottom-block .sb-settings-row {{ justify-content: center !important; padding: 0.4rem !important; }}
-.sb-bottom-block .sb-profile-row {{ justify-content: center !important; }}
-.sb-bottom-block .sb-profile-details {{ display: none !important; }}
-.sb-bottom-block .sb-logout-btn {{ display: none !important; }}
-</style>""", unsafe_allow_html=True)
+def _inject_collapse_js() -> None:
+    """Inject JS that wires our toggle icon to Streamlit's native sidebar collapse."""
+    components.html("""
+    <script>
+    (function() {
+        const pd = window.parent.document;
+
+        // Wire click on our custom toggle icon
+        const icon = pd.querySelector('.sb-toggle-icon');
+        if (icon && !icon._wired) {
+            icon._wired = true;
+            icon.style.cursor = 'pointer';
+            icon.addEventListener('click', function() {
+                // Find the collapse button INSIDE the sidebar (not the toolbar one)
+                const sidebar = pd.querySelector('section[data-testid="stSidebar"]');
+                const btn = sidebar
+                    ? sidebar.querySelector('button[data-testid="baseButton-header"]')
+                    : null;
+                if (btn) { btn.click(); return; }
+                // Fallback: try the expand control (visible when collapsed)
+                const exp = pd.querySelector('[data-testid="collapsedControl"]');
+                if (exp) exp.click();
+            });
+        }
+    })();
+    </script>
+    """, height=0)
 
 
 def render_sidebar():
-    # ── Sidebar collapsed state ──────────────────────────────────────────
-    if "sidebar_collapsed" not in st.session_state:
-        st.session_state["sidebar_collapsed"] = False
-    collapsed = st.session_state["sidebar_collapsed"]
-
     with st.sidebar:
-        # Inject dynamic width CSS
-        _inject_sidebar_width_css(collapsed)
-
         # ── Brand header ──────────────────────────────────────────────────
-        _brand_text = (
-            '<span class="sb-brand-text">'
-            ' Saman<span style="color:rgba(179,184,219,0.6);">Sport</span>'
-            '</span>'
-        )
         st.markdown(
             '<div style="padding:1.2rem 0.75rem 0rem;">'
             '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:1.02rem;'
             'font-weight:700;color:#D5D9EB;letter-spacing:-0.025em;line-height:1.2;'
             'display:flex;align-items:center;">'
-            f'<span style="color:#4E5BA6;">&#9632;</span>{_brand_text}</div>'
+            '<span style="color:#4E5BA6;">&#9632;</span>'
+            '<span class="sb-brand-text">'
+            ' Saman<span style="color:rgba(179,184,219,0.6);">Sport</span>'
+            '</span></div>'
             '</div>'
             '<div class="sb-status-block" style="padding:0 0.75rem 0.1rem;">'
             '<div style="font-family:\'DM Sans\',sans-serif;font-size:0.63rem;'
@@ -69,17 +63,14 @@ def render_sidebar():
             unsafe_allow_html=True,
         )
 
-        # ── Collapse toggle (own element → reliable overlay) ─────────────
-        _toggle_icon = "panel-left-close" if not collapsed else "panel-left-open"
+        # ── Collapse toggle icon (JS-driven) ─────────────────────────────
         st.markdown(
             f'<div class="sb-toggle-icon">'
-            f'{svg(_toggle_icon, 18, "rgba(179,184,219,0.5)")}'
+            f'{svg("panel-left-close", 18, "rgba(179,184,219,0.5)")}'
             f'</div>',
             unsafe_allow_html=True,
         )
-        if st.button("\u200b", key="sb_toggle"):
-            st.session_state["sidebar_collapsed"] = not collapsed
-            st.rerun()
+        _inject_collapse_js()
 
         # ── Connection health check ─────────────────────────────────────
         if "_conn_health" not in st.session_state:
@@ -144,9 +135,8 @@ def render_sidebar():
                 st.rerun()
 
         # ── Bottom: Settings + User profile (fixed to bottom) ────────────
-        _sb_w = SIDEBAR_COLLAPSED_WIDTH if collapsed else SIDEBAR_WIDTH
         st.markdown(
-            f'<div class="sb-bottom-block" style="position:fixed;bottom:0;width:{_sb_w};'
+            '<div class="sb-bottom-block" style="position:fixed;bottom:0;width:15rem;'
             f'background:#363F72;padding:0 0.75rem 1rem;z-index:20;">'
             f'<div class="sb-settings-row" style="{NAV_INACTIVE_STYLE}cursor:pointer;">'
             f'{svg("settings", 18, "rgba(179,184,219,0.6)")}'
