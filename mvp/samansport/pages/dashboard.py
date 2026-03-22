@@ -182,6 +182,7 @@ class DashboardState(AppState):
         )
         fig_rev.update_layout(
             height=260,
+            autosize=True,
             paper_bgcolor="white",
             plot_bgcolor=COLORS["25"],
             margin=dict(l=0, r=0, t=10, b=0),
@@ -208,6 +209,7 @@ class DashboardState(AppState):
         )
         fig_qty.update_layout(
             height=230,
+            autosize=True,
             paper_bgcolor="white",
             plot_bgcolor=COLORS["25"],
             margin=dict(l=0, r=0, t=10, b=0),
@@ -270,6 +272,7 @@ class DashboardState(AppState):
             )
             fig_top.update_layout(
                 height=max(400, len(grp) * 42),
+                autosize=True,
                 paper_bgcolor="white",
                 plot_bgcolor=COLORS["25"],
                 margin=dict(l=0, r=0, t=0, b=30),
@@ -295,12 +298,17 @@ def _chart_card(title: str, chart_data: rx.Var) -> rx.Component:
             color=COLORS["text_dark"],
             margin_bottom="0.5rem",
         ),
-        rx.plotly(data=chart_data),
+        rx.plotly(
+            data=chart_data,
+            use_resize_handler=True,
+            style={"width": "100%"},
+        ),
         background="white",
         border_radius="10px",
         padding="1rem",
         border=f"1px solid {COLORS['100']}",
         margin_bottom="1rem",
+        overflow="hidden",
     )
 
 

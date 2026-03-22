@@ -220,6 +220,7 @@ class AnalyticsState(AppState):
             )
         fig.update_layout(
             height=380,
+            autosize=True,
             paper_bgcolor="white",
             plot_bgcolor=COLORS["25"],
             margin=dict(l=0, r=0, t=10, b=0),
@@ -295,6 +296,7 @@ class AnalyticsState(AppState):
             fig.update_layout(
                 barmode="group",
                 height=380,
+                autosize=True,
                 paper_bgcolor="white",
                 plot_bgcolor=COLORS["25"],
                 margin=dict(l=0, r=0, t=10, b=0),
@@ -471,12 +473,17 @@ def _sales_tab() -> rx.Component:
                 ),
                 # Chart
                 rx.box(
-                    rx.plotly(data=AnalyticsState.sales_chart),
+                    rx.plotly(
+                        data=AnalyticsState.sales_chart,
+                        use_resize_handler=True,
+                        style={"width": "100%"},
+                    ),
                     background="white",
                     border_radius="10px",
                     padding="1rem",
                     border=f"1px solid {COLORS['100']}",
                     margin_bottom="1rem",
+                    overflow="hidden",
                 ),
                 # Summary metrics row
                 rx.grid(
@@ -548,10 +555,15 @@ def _movements_tab() -> rx.Component:
                         margin_bottom="0.5rem",
                         color=COLORS["charcoal"],
                     ),
-                    rx.plotly(data=AnalyticsState.movements_chart_data),
+                    rx.plotly(
+                        data=AnalyticsState.movements_chart_data,
+                        use_resize_handler=True,
+                        style={"width": "100%"},
+                    ),
                     background="white",
                     border_radius="10px",
                     padding="1rem",
+                    overflow="hidden",
                     border=f"1px solid {COLORS['100']}",
                     margin_bottom="1rem",
                 ),
