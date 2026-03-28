@@ -80,6 +80,7 @@ The intended merge flow is:
 3. merge back into `dev`
 4. test and stabilize in `dev`
 5. merge `dev` into `master` only when the state is release-worthy
+6. tag `master`indicating version after phase is complete. Naming convention should follow the existing tagging patter
 
 ### Practical Meaning
 
