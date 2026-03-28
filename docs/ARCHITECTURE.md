@@ -6,7 +6,9 @@ This document gives a product-level and system-level architecture view of the re
 
 It is intended to be the **broad architectural map** for the project.
 
-If the repository also contains a more detailed backend-specific architecture document, that document should be treated as a deeper technical companion rather than a replacement for this overview.
+For the detailed backend data flow — including the stale-while-revalidate sync pattern, atomic debouncing, entity TTLs, and Supabase/SOAP interaction — see **[docs/BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md)**.
+
+That document is the deeper technical companion to this overview, not a replacement for it.
 
 ---
 

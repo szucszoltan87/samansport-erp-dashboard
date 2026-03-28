@@ -51,7 +51,63 @@ Flow:
 3. merge back into `dev`
 4. promote `dev` into `master` only when stable
 
+## Quick Start
+
+The active Reflex application lives in the `mvp/` folder.
+
+```bash
+cd mvp
+
+# First time only: create a virtual environment
+python -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate        # macOS/Linux
+# venv\Scripts\activate         # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment config and fill in your values
+cp .env.example .env
+
+# Run the app
+reflex run
+```
+
+The app will be available at `http://localhost:3000` by default.
+
+---
+
+## Repository Layout
+
+```
+mvp/                 Active Reflex frontend application
+  rxconfig.py        Reflex configuration and app entry point
+  samansport/        Reflex app package (pages, components, state)
+  tharanis_client.py Data access layer (Supabase + SOAP fallback)
+  models.py          Pydantic data models
+  charts.py          Chart helpers
+  helpers.py         Utility functions
+  tests/             pytest test suite
+  requirements.txt   Python dependencies
+
+supabase/            Backend infrastructure
+  migrations/        PostgreSQL DDL migrations (6 files)
+  functions/         Deno Edge Functions (sync, refresh, hydration)
+
+docs/                Project documentation and governance
+  ARCHITECTURE.md    Broad system architecture overview
+  BACKEND_ARCHITECTURE.md  Detailed data flow and sync patterns
+  PRODUCT_BRIEF.md   Product goals and user targets
+  HARNESS_PLAN.md    Development harness plan
+  EVALUATOR_CHECKLIST.md  Pre-merge quality gate
+  sprints/           Sprint artifacts per branch
+```
+
+---
+
 ## Status
 
-The repository already contains a working MVP foundation.  
+The repository already contains a working MVP foundation.
 The current focus is to harden the architecture, improve the development process, and evolve the system into a shippable product.
