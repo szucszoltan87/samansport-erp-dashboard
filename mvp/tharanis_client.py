@@ -562,7 +562,7 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
     # Try Supabase first (unless force_refresh is set)
     if _USE_SUPABASE and not force_refresh:
         df = _supabase_get_sales(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     # If force_refresh with Supabase, trigger sync then read
@@ -572,7 +572,7 @@ def get_sales(start_date: str, end_date: str, cikkszam: str | None = None,
         })
         # Still try to read current data from Supabase
         df = _supabase_get_sales(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     # Fallback: direct SOAP call
@@ -686,7 +686,7 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
     # Try Supabase first
     if _USE_SUPABASE and not force_refresh:
         df = _supabase_get_movements(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     if _USE_SUPABASE and force_refresh:
@@ -694,7 +694,7 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
             "start_date": start_date, "end_date": end_date, "cikkszam": cikkszam
         })
         df = _supabase_get_movements(start_date, end_date, cikkszam)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
 
     # Fallback: direct SOAP call
@@ -740,6 +740,49 @@ def get_stock_movements(start_date: str, end_date: str, cikkszam: str | None = N
         return pd.DataFrame(
             columns=["kelt", "Cikkszám", "Irány", "Mozgástípus", "Mennyiség"]
         )
+
+
+_TENANT_UUID = "dd98e7b4-65df-43a4-bfd0-4f903a8c2f46"  # samansport
+
+
+def get_inventory_monitor(
+    lookback_years: int = 2,
+    top_n: int = 100,
+    lead_time: int = 3,
+    service_level: float = 0.95,
+    tenant_id: str = "samansport",
+) -> list[dict]:
+    """Call the inventory monitor SQL function via Supabase RPC.
+
+    Uses public.compute_inventory_monitor which takes a UUID tenant_id
+    and service_level directly (handles z-score mapping internally).
+    Column names in the response are prefixed with ``out_`` — we strip that.
+    """
+    sb = _get_supabase()
+    if sb is None:
+        logger.warning("Supabase not available for inventory monitor")
+        return []
+
+    try:
+        result = sb.rpc(
+            "compute_inventory_monitor",
+            {
+                "p_tenant_id": _TENANT_UUID,
+                "p_lookback_years": lookback_years,
+                "p_top_n": top_n,
+                "p_service_level": service_level,
+                "p_lead_time_months": lead_time,
+            },
+        ).execute()
+        rows = result.data or []
+        # Strip "out_" prefix from column names to match UI expectations
+        return [
+            {k.removeprefix("out_"): v for k, v in row.items()}
+            for row in rows
+        ]
+    except Exception:
+        logger.exception("Failed to call compute_inventory_monitor")
+        return []
 
 
 def get_last_sync_time() -> str | None:
