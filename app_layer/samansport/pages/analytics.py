@@ -16,6 +16,40 @@ from samansport.styles import COLORS
 from samansport.templates.template import template
 
 
+# ── Helpers (inlined to avoid importing Streamlit-era modules) ───────────────
+
+def _hu_thousands(n: float | int, decimals: int = 0) -> str:
+    if decimals > 0:
+        formatted = f"{n:,.{decimals}f}"
+    else:
+        formatted = f"{n:,.0f}"
+    return formatted.replace(",", " ").replace(".", ",")
+
+
+def _period_key(series: pd.Series, period: str) -> pd.Series:
+    if period == "Éves":
+        return series.dt.to_period("Y").astype(str)
+    if period == "Havi":
+        return series.dt.strftime("%Y-%m")
+    if period == "Heti":
+        return series.dt.to_period("W").astype(str)
+    return series.dt.strftime("%Y-%m-%d")
+
+
+def _find_sku_col(df: pd.DataFrame):
+    for c in ["Cikkszám", "cikkszam", "SKU", "sku"]:
+        if c in df.columns:
+            return c
+    return None
+
+
+def _find_name_col(df: pd.DataFrame):
+    for c in ["Cikknév", "cikknev", "Megnevezés"]:
+        if c in df.columns:
+            return c
+    return None
+
+
 PERIOD_OPTIONS = ["Éves", "Havi", "Heti", "Napi"]
 METRIC_KEYS = [
     "Bruttó forgalom",
@@ -117,8 +151,6 @@ class AnalyticsState(AppState):
 
         try:
             import tharanis_client as api
-            from theme import hu_thousands
-            from helpers import period_key, find_sku_col, find_name_col
 
             start = (
                 self.date_start
@@ -136,8 +168,8 @@ class AnalyticsState(AppState):
             self._sales_df = df
 
             # Build product options
-            sc = find_sku_col(df)
-            nc = find_name_col(df)
+            sc = _find_sku_col(df)
+            nc = _find_name_col(df)
             opts = ["— Összes termék —"]
             if sc:
                 products = (
@@ -166,8 +198,6 @@ class AnalyticsState(AppState):
 
     def _get_filtered_df(self) -> pd.DataFrame:
         """Return sales df filtered by selected product."""
-        from helpers import find_sku_col
-
         df = self._sales_df
         if df is None or df.empty:
             return df
@@ -175,7 +205,7 @@ class AnalyticsState(AppState):
             return df
         # Extract SKU from "SKU  –  Name" label
         sku = self.selected_product.split("  –  ")[0].strip()
-        sc = find_sku_col(df)
+        sc = _find_sku_col(df)
         if sc:
             filtered = df[df[sc] == sku]
             return filtered if not filtered.empty else df
@@ -183,18 +213,15 @@ class AnalyticsState(AppState):
 
     def _apply_product_filter(self):
         """Re-filter data, rebuild chart, summary and table for selected product."""
-        from theme import hu_thousands
-        from helpers import find_sku_col, find_name_col
-
         df = self._get_filtered_df()
         if df is None or df.empty:
             return
 
         # Update summary metrics for filtered data
-        self.summary_quantity = f"{hu_thousands(df['Mennyiség'].sum())} db"
-        self.summary_gross = f"{hu_thousands(df['Bruttó érték'].sum())} HUF"
-        self.summary_net = f"{hu_thousands(df['Nettó érték'].sum())} HUF"
-        self.summary_avg_price = f"{hu_thousands(df['Bruttó ár'].mean())} HUF"
+        self.summary_quantity = f"{_hu_thousands(df['Mennyiség'].sum())} db"
+        self.summary_gross = f"{_hu_thousands(df['Bruttó érték'].sum())} HUF"
+        self.summary_net = f"{_hu_thousands(df['Nettó érték'].sum())} HUF"
+        self.summary_avg_price = f"{_hu_thousands(df['Bruttó ár'].mean())} HUF"
 
         # Rebuild chart
         self._rebuild_sales_chart()
@@ -202,8 +229,8 @@ class AnalyticsState(AppState):
         # Rebuild table
         table_df = df.copy()
         table_df["kelt"] = table_df["kelt"].dt.strftime("%Y.%m.%d")
-        sc = find_sku_col(table_df)
-        nc = find_name_col(table_df)
+        sc = _find_sku_col(table_df)
+        nc = _find_name_col(table_df)
         # Build display table with selected columns
         cols = ["kelt"]
         if sc:
@@ -227,7 +254,6 @@ class AnalyticsState(AppState):
     def _rebuild_sales_chart(self):
         """Rebuild the sales chart based on current metric/period/chart_type."""
         import plotly.graph_objects as go
-        from helpers import period_key
 
         df = self._get_filtered_df()
         if df is None or df.empty:
@@ -235,7 +261,7 @@ class AnalyticsState(AppState):
 
         col_name, agg_fn, unit = METRIC_CFG[self.selected_metric]
         df2 = df.copy()
-        df2["Periódus"] = period_key(df2["kelt"], self.selected_period)
+        df2["Periódus"] = _period_key(df2["kelt"], self.selected_period)
         grouped = (
             df2.groupby("Periódus")[col_name]
             .agg(agg_fn)
@@ -291,8 +317,6 @@ class AnalyticsState(AppState):
 
         try:
             import tharanis_client as api
-            from theme import hu_thousands
-            from helpers import period_key
             import plotly.graph_objects as go
 
             start = (
@@ -311,14 +335,14 @@ class AnalyticsState(AppState):
             total_be = mdf[mdf["Irány"] == "B"]["Mennyiség"].sum()
             total_ki = mdf[mdf["Irány"] == "K"]["Mennyiség"].sum()
             net = total_be - total_ki
-            self.mov_incoming = f"{hu_thousands(total_be)} db"
-            self.mov_outgoing = f"{hu_thousands(total_ki)} db"
-            self.mov_net = f"{'+'if net > 0 else ''}{hu_thousands(net)} db"
+            self.mov_incoming = f"{_hu_thousands(total_be)} db"
+            self.mov_outgoing = f"{_hu_thousands(total_ki)} db"
+            self.mov_net = f"{'+'if net > 0 else ''}{_hu_thousands(net)} db"
             self.mov_types = str(mdf["Mozgástípus"].nunique())
 
             # Chart
             mdf2 = mdf.copy()
-            mdf2["Periódus"] = period_key(mdf2["kelt"], self.selected_period)
+            mdf2["Periódus"] = _period_key(mdf2["kelt"], self.selected_period)
             be_map = (
                 mdf2[mdf2["Irány"] == "B"]
                 .groupby("Periódus")["Mennyiség"]
