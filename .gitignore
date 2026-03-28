@@ -32,5 +32,14 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+# Tool artifacts
 .playwright-mcp/
 *.pages
+node_modules/
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json
+
+# Debug screenshots at repo root
+/*.png

@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TD
     subgraph Frontend
-        A[Streamlit App<br>mvp/app.py]
+        A[Reflex App<br>mvp/samansport/]
     end
 
     subgraph Client Layer
@@ -103,9 +103,10 @@ supabase/
     hydrate-all/index.ts            -- Admin: bulk historical load (limited by compute)
   config.toml                       -- Edge Function settings (JWT disabled)
 mvp/
-  app.py                            -- Streamlit frontend (unchanged)
+  samansport/                       -- Reflex frontend (pages, components, state, styles)
   tharanis_client.py                -- Reads from Supabase, falls back to SOAP
   hydrate.py                        -- Local script for bulk historical loading
+  rxconfig.py                       -- Reflex app configuration
   .env                              -- SUPABASE_URL + SUPABASE_ANON_KEY + SOAP creds
 ```
 

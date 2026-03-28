@@ -3,6 +3,9 @@
 **Date**: 2026-03-01
 **Branch**: UI_redesign
 
+> **Note (2026-03-28):** The implementation plan that accompanied this design was written for the Streamlit stack and has been archived to `docs/archive/`. This design document is retained because the visual decisions (color palette, sidebar layout, card styling) remain valid product design reference for the current Reflex frontend.
+
+
 ## Goal
 Redesign the SamanSport ERP app UI to match the PulseERP reference screenshot style, while keeping existing Dashboard and Analytics functionality intact.
 
