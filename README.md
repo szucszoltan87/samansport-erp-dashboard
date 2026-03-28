@@ -53,10 +53,10 @@ Flow:
 
 ## Quick Start
 
-The active Reflex application lives in the `mvp/` folder.
+The active Reflex application lives in the `app_layer/` folder.
 
 ```bash
-cd mvp
+cd app_layer
 
 # First time only: create a virtual environment
 python -m venv venv
@@ -82,7 +82,7 @@ The app will be available at `http://localhost:3000` by default.
 ## Repository Layout
 
 ```
-mvp/                 Active Reflex frontend application
+app_layer/           Active Reflex application layer (frontend, domain logic, data access)
   rxconfig.py        Reflex configuration and app entry point
   samansport/        Reflex app package (pages, components, state)
   tharanis_client.py Data access layer (Supabase + SOAP fallback)

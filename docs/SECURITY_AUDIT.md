@@ -10,7 +10,7 @@
 
 **Status: PASS**
 
-- `.env` is listed in both `/.gitignore` (line 13) and `/mvp/.gitignore` (line 3).
+- `.env` is listed in both `/.gitignore` (line 13) and `/app_layer/.gitignore` (line 3).
 - `.env.example` is correctly excluded from the ignore rule with `!.env.example`.
 
 ## 2. Git History — Accidentally Committed Secrets
@@ -28,7 +28,7 @@ Scanned `git log --all -p` for: `password`, `api_key`, `service_role`, `secret`,
 
 **Status: PASS**
 
-- `SUPABASE_SERVICE_ROLE_KEY` is **not used anywhere in Python code** (`mvp/`).
+- `SUPABASE_SERVICE_ROLE_KEY` is **not used anywhere in Python code** (`app_layer/`).
 - It is **correctly confined** to Deno Edge Functions:
   - `supabase/functions/_shared/supabase-admin.ts:9`
   - `supabase/functions/hydrate-all/index.ts:70`
@@ -48,7 +48,7 @@ Scanned `git log --all -p` for: `password`, `api_key`, `service_role`, `secret`,
 
 **Status: PASS — already exists**
 
-- Located at `mvp/.env.example` with proper structure and clear comments.
+- Located at `app_layer/.env.example` with proper structure and clear comments.
 - Service role key entry is present but empty, with a "NEVER commit actual values" warning.
 - All required variables are documented.
 
@@ -58,7 +58,7 @@ Scanned `git log --all -p` for: `password`, `api_key`, `service_role`, `secret`,
 
 ### 5a. SSL Verification Disabled (MEDIUM)
 
-**File:** `mvp/tharanis_client.py:382`
+**File:** `app_layer/tharanis_client.py:382`
 
 ```python
 r = requests.post(_API_URL, ..., verify=False, timeout=120)

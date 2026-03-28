@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import sys
 import os
 
-# Add mvp/ to path so we can import backend modules (tharanis_client, helpers, etc.)
+# Add app_layer/ to path so we can import backend modules (tharanis_client, helpers, etc.)
 _mvp_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _mvp_dir not in sys.path:
     sys.path.insert(0, _mvp_dir)

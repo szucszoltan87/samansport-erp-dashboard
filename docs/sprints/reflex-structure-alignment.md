@@ -178,9 +178,9 @@ This is a low-risk, doc-only sprint with no code changes. Changes are minimal, f
 
 ## 16. Follow-Up Work
 
-- **Rename `mvp/`** → clearer name (e.g., `frontend/` or `app_layer/`) in a dedicated follow-up sprint. Requires updating startup scripts, doc references, and verifying Python import paths.
+- **Rename `mvp/`** → `app_layer/` — **addressed in `feature/rename-mvp-to-app-layer`**.
 - **Organize root reference files** (`Tharanis_API_doc.pdf`, connector JSON, design pages) into a `reference/` or `docs/reference/` folder if the root continues to feel cluttered.
-- **Add a `Makefile` or `start.sh`** at repo root for one-command startup, pointing into `mvp/`.
+- **Add a `Makefile` or `start.sh`** at repo root for one-command startup, pointing into `app_layer/`.
 
 ---
 
@@ -193,12 +193,12 @@ This is a low-risk, doc-only sprint with no code changes. Changes are minimal, f
 - `docs/sprints/` folder created with this sprint artifact
 
 **What remains open:**
-- `mvp/` folder name is still ambiguous — proposed as follow-up sprint
+- `mvp/` folder renamed to `app_layer/` in `feature/rename-mvp-to-app-layer`
 - Root reference files (PDF, JSON, pages) remain at root
 
 **Special attention:**
-- The `mvp/` folder is the active Reflex app root. Run everything from inside it.
-- `rxconfig.py` in `mvp/` is the Reflex startup configuration.
+- The `app_layer/` folder is the active Reflex app root (renamed from `mvp/` in `feature/rename-mvp-to-app-layer`). Run everything from inside it.
+- `rxconfig.py` in `app_layer/` is the Reflex startup configuration.
 
 **Known temporary compromises:**
 - None. This sprint is clean and self-contained.

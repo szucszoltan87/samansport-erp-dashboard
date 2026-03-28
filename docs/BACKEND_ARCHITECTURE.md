@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TD
     subgraph Frontend
-        A[Reflex App<br>mvp/samansport/]
+        A[Reflex App<br>app_layer/samansport/]
     end
 
     subgraph Client Layer
@@ -102,7 +102,7 @@ supabase/
     cron-refresh/index.ts           -- Scheduled: triggers sync-entity for each entity
     hydrate-all/index.ts            -- Admin: bulk historical load (limited by compute)
   config.toml                       -- Edge Function settings (JWT disabled)
-mvp/
+app_layer/
   samansport/                       -- Reflex frontend (pages, components, state, styles)
   tharanis_client.py                -- Reads from Supabase, falls back to SOAP
   hydrate.py                        -- Local script for bulk historical loading
