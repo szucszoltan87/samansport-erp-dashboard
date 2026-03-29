@@ -410,6 +410,14 @@ class InventoryMonitorState(AppState):
     has_monitor_data: bool = False
     monitor_csv_data: str = ""
     monitor_csv_filename: str = ""
+    methodology_modal: str = ""
+
+    def open_methodology(self, key: str):
+        self.methodology_modal = key
+
+    def close_methodology(self, _open: bool = False):
+        if not _open:
+            self.methodology_modal = ""
 
     @rx.var
     def total_monitored(self) -> int:
@@ -861,6 +869,439 @@ def _status_badge(value: rx.Var) -> rx.Component:
     )
 
 
+# ---------------------------------------------------------------------------
+# Methodology: info icons & modals
+# ---------------------------------------------------------------------------
+
+def _info_icon(tooltip: str) -> rx.Component:
+    """Small info icon with hover tooltip only (no click action)."""
+    return rx.tooltip(
+        rx.icon(
+            tag="info",
+            size=13,
+            color=COLORS["muted"],
+            cursor="help",
+            flex_shrink="0",
+        ),
+        content=tooltip,
+        side="top",
+    )
+
+
+def _info_icon_clickable(tooltip: str, modal_key: str) -> rx.Component:
+    """Info icon with hover tooltip AND click-to-open modal."""
+    return rx.tooltip(
+        rx.icon(
+            tag="info",
+            size=13,
+            color=COLORS["accent"],
+            cursor="pointer",
+            flex_shrink="0",
+            on_click=InventoryMonitorState.open_methodology(modal_key),
+        ),
+        content=f"{tooltip} (kattints a részletekért)",
+        side="top",
+    )
+
+
+def _col_header(label: str, tooltip: str, width: str, modal_key: str = "") -> rx.Component:
+    """Column header cell with label + info icon."""
+    icon = (
+        _info_icon_clickable(tooltip, modal_key)
+        if modal_key
+        else _info_icon(tooltip)
+    )
+    return rx.table.column_header_cell(
+        rx.hstack(
+            rx.text(label, white_space="nowrap"),
+            icon,
+            spacing="1",
+            align="center",
+        ),
+        width=width,
+    )
+
+
+def _col_header_dynamic(label: rx.Var, tooltip: str, width: str, modal_key: str = "") -> rx.Component:
+    """Column header cell with a dynamic (rx.Var) label + info icon."""
+    icon = (
+        _info_icon_clickable(tooltip, modal_key)
+        if modal_key
+        else _info_icon(tooltip)
+    )
+    return rx.table.column_header_cell(
+        rx.hstack(
+            rx.text(label, white_space="nowrap"),
+            icon,
+            spacing="1",
+            align="center",
+        ),
+        width=width,
+    )
+
+
+def _methodology_modal_rop() -> rx.Component:
+    """Modal content explaining the ROP calculation."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("ROP — Újrarendelési küszöb"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "A ROP (Reorder Point) az a készletszint, amelynél új rendelést kell feladni "
+                        "ahhoz, hogy a kiszolgálási szint a célérték felett maradjon.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.text("Képlet:", font_weight="600", font_size="0.85rem"),
+                        rx.code(
+                            "ROP(L) = μ(L) + z × σ(L)",
+                            font_size="0.9rem",
+                            padding="0.5rem",
+                            width="100%",
+                            display="block",
+                        ),
+                        rx.vstack(
+                            rx.text("• μ(L) = várható összkereslet az L hónapos átfutási idő alatt", font_size="0.8rem"),
+                            rx.text("• σ(L) = a kereslet szórása ugyanezen időszakra", font_size="0.8rem"),
+                            rx.text("• z = biztonsági tényező (90% → 1,28 | 95% → 1,65 | 99% → 2,33)", font_size="0.8rem"),
+                            spacing="1",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.box(
+                        rx.text("Példa — Boxzsák, Saman Spirit, 150×40 cm (cikkszám: 4633)", font_weight="600", font_size="0.85rem"),
+                        rx.vstack(
+                            rx.text("Előrejelzett kereslet: H+1 = 15, H+2 = 13, H+3 = 19 db", font_size="0.8rem"),
+                            rx.text("3 hónapos átfutási időre:", font_size="0.8rem", font_weight="500"),
+                            rx.text("• Várható kereslet: μ(3) = 15 + 13 + 19 = 46,4 db", font_size="0.8rem"),
+                            rx.text("• Kereslet szórása: σ(3) = 9,7 db", font_size="0.8rem"),
+                            rx.text("• ROP(3) = 46,4 + 1,65 × 9,7 = 62,5 db", font_size="0.8rem"),
+                            rx.text("• Jelenlegi készlet (IP): 3 db", font_size="0.8rem"),
+                            rx.text("• Javasolt = max(0, 62,5 − 3) = 60 db", font_size="0.8rem", font_weight="500"),
+                            spacing="1",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="520px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "rop",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_ip() -> rx.Component:
+    """Modal content explaining IP (Inventory Position)."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("IP — Készletpozíció (Inventory Position)"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "Az IP a valós rendelkezésre álló készletet mutatja, figyelembe véve "
+                        "a nyitott rendeléseket és a vevői hátralékokat.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.code(
+                            "IP = Készlet + Rendelve − Hátralékos",
+                            font_size="0.9rem",
+                            padding="0.5rem",
+                            width="100%",
+                            display="block",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.text(
+                        "Jelenleg a Rendelve és Hátralékos értékek minden terméknél 0, "
+                        "ezért az IP megegyezik a raktárkészlettel. Ha ezek az értékek "
+                        "változnak, az IP automatikusan frissül.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    rx.text(
+                        "A készletadatok a Bartók raktárból (központi raktár) származnak "
+                        "— minden beszerzés ide érkezik, innen történik a többi raktár feltöltése.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "ip",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_stability() -> rx.Component:
+    """Modal explaining stability classification."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Stabilitás — Kereslet besorolás"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "A stabilitási besorolás a variációs együtthatón (CV) alapul, "
+                        "ami a havi eladások ingadozását méri.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.hstack(
+                                rx.badge("stabil", color_scheme="green", size="1"),
+                                rx.text("CV < 0,5 — kiszámítható kereslet", font_size="0.8rem"),
+                                align="center", spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.badge("ingadozó", color_scheme="yellow", size="1"),
+                                rx.text("CV 0,5–0,75 — mérsékelt ingadozás", font_size="0.8rem"),
+                                align="center", spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.badge("volatilis", color_scheme="red", size="1"),
+                                rx.text("CV > 0,75 — kiszámíthatatlan, magasabb biztonsági készlet szükséges", font_size="0.8rem"),
+                                align="center", spacing="2",
+                            ),
+                            spacing="2",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "stability",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_status() -> rx.Component:
+    """Modal explaining RENDELJ / OK status logic."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Státusz — RENDELJ / OK"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "A státusz azt jelzi, hogy szükséges-e rendelést feladni a termékre.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.hstack(
+                                rx.badge("RENDELJ", color_scheme="red", size="1"),
+                                rx.text("Készlet (IP) < ROP 3 hónapos átfutásra — rendelés szükséges", font_size="0.8rem"),
+                                align="center", spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.badge("OK", color_scheme="green", size="1"),
+                                rx.text("Készlet (IP) ≥ ROP 3 hónapos átfutásra — nincs azonnali teendő", font_size="0.8rem"),
+                                align="center", spacing="2",
+                            ),
+                            spacing="2",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.text(
+                        "A 3 hónapos átfutási idő a leghosszabb vizsgált időtáv. "
+                        "Ha ezen belül a készlet a ROP alatt van, a rendszer jelzi a rendelési igényt.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "status",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_jav() -> rx.Component:
+    """Modal explaining suggested order quantities."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Javasolt rendelési mennyiség"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "A javasolt rendelési mennyiség megmutatja, minimum hány darabot "
+                        "érdemes rendelni az adott átfutási időhöz.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.code(
+                            "Javasolt = max(0, ROP(L) − IP)",
+                            font_size="0.9rem",
+                            padding="0.5rem",
+                            width="100%",
+                            display="block",
+                        ),
+                        rx.text(
+                            "Ha a készlet (IP) a ROP felett van, nincs szükség rendelésre (0). "
+                            "Ha alatta van, a különbség a minimális rendelési mennyiség.",
+                            font_size="0.8rem",
+                            margin_top="0.5rem",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.text(
+                        "A három érték (1h / 2h / 3h) az 1, 2 és 3 hónapos átfutási "
+                        "időhöz tartozó javasolt mennyiséget mutatja.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "jav",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_forecast() -> rx.Component:
+    """Modal explaining the forecasting method — triggered from H+1/H+2/H+3 columns."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Előrejelzési módszer"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "Az előrejelzésekhez naiv (történelmi átlagokon alapuló) módszert alkalmazunk. "
+                        "Az egyes hónapokra a korábbi évek azonos hónapjainak átlaga adja a becslést.",
+                        font_size="0.85rem",
+                    ),
+                    rx.text(
+                        "Megvizsgáltunk más statisztikai modelleket is (pl. exponenciális simítás, ARIMA), "
+                        "és arra a következtetésre jutottunk, hogy az adatok jellegéből adódóan — magas "
+                        "volatilitás, szezonális ingadozások, rendszertelen értékesítési minták — a naiv "
+                        "előrejelzés nem teljesít rosszabbul, mint a bonyolultabb modellek.",
+                        font_size="0.85rem",
+                    ),
+                    rx.text(
+                        "Trendet mutató termékeknél javasolt továbbá statisztikai vizsgálatok elvégzése, "
+                        "amelyek jobban kezelhetik a szisztematikus változásokat a keresletben.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    rx.box(
+                        rx.text("Megjegyzés:", font_weight="600", font_size="0.8rem"),
+                        rx.text(
+                            "A nulla eladású hónapok ki vannak zárva a szórásszámításból, "
+                            "hogy ne torzítsák lefelé a volatilitás becslését.",
+                            font_size="0.8rem",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "forecast",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_disclaimer() -> rx.Component:
+    """Modal with a compact legal disclaimer."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Jogi nyilatkozat"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "Jelen monitor kizárólag tájékoztató és statisztikai elemzési célokat szolgál, "
+                        "és nem minősül üzleti, pénzügyi vagy jogi tanácsadásnak.",
+                        font_size="0.85rem",
+                    ),
+                    rx.text(
+                        "Az elemzés történelmi adatokon alapul. Az előrejelzések, újrarendelési pontok és "
+                        "javasolt mennyiségek statisztikai modellek kimenetei, amelyek természetüknél fogva "
+                        "bizonytalanságot hordoznak magukban.",
+                        font_size="0.85rem",
+                    ),
+                    rx.text(
+                        "Az üzleti döntések meghozatala kizárólag a felhasználó felelőssége. "
+                        "A készletgazdálkodást számos tényező befolyásolhatja, beleértve a beszállítói "
+                        "megbízhatóságot, piaci változásokat, szabályozási környezetet és vis maior eseményeket.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "disclaimer",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modals() -> rx.Component:
+    """All methodology modals grouped together."""
+    return rx.fragment(
+        _methodology_modal_rop(),
+        _methodology_modal_ip(),
+        _methodology_modal_stability(),
+        _methodology_modal_status(),
+        _methodology_modal_jav(),
+        _methodology_modal_forecast(),
+        _methodology_modal_disclaimer(),
+    )
+
+
 def _monitor_kpi(label: str, value: rx.Var, color: str = COLORS["charcoal"]) -> rx.Component:
     return rx.box(
         rx.text(
@@ -961,23 +1402,20 @@ def _monitor_tab() -> rx.Component:
                     rx.table.root(
                         rx.table.header(
                             rx.table.row(
-                                rx.table.column_header_cell("#", width="40px"),
-                                rx.table.column_header_cell("Cikksz.", width="70px"),
-                                rx.table.column_header_cell("Terméknév", min_width="200px"),
-                                rx.table.column_header_cell("Stab.", width="75px"),
-                                rx.table.column_header_cell("Havi el.", width="55px"),
-                                rx.table.column_header_cell("Havi hátra", width="60px"),
-                                rx.table.column_header_cell("H+1", width="45px"),
-                                rx.table.column_header_cell("H+2", width="45px"),
-                                rx.table.column_header_cell("H+3", width="45px"),
-                                rx.table.column_header_cell("Készlet", width="60px"),
-                                rx.table.column_header_cell("IP", width="50px"),
-                                rx.table.column_header_cell(
-                                    InventoryMonitorState.rop_col_label,
-                                    width="50px",
-                                ),
-                                rx.table.column_header_cell("Jav 1h/2h/3h", width="100px"),
-                                rx.table.column_header_cell("St.", width="70px"),
+                                _col_header("#", "Rangsor árbevétel alapján", "40px"),
+                                _col_header("Cikksz.", "Cikkszám (SKU azonosító)", "70px"),
+                                _col_header("Terméknév", "A termék megnevezése", "200px"),
+                                _col_header("Stab.", "Kereslet stabilitása (variációs együttható alapján)", "75px", modal_key="stability"),
+                                _col_header("Havi el.", "Aktuális hónap eddigi eladásai", "55px"),
+                                _col_header("Havi hátra", "Hónap végéig várható további eladások (előrejelzés − eddigi)", "70px"),
+                                _col_header("H+1", "Következő hónap előrejelzése", "45px", modal_key="forecast"),
+                                _col_header("H+2", "2 hónap múlva előrejelzés", "45px", modal_key="forecast"),
+                                _col_header("H+3", "3 hónap múlva előrejelzés", "45px", modal_key="forecast"),
+                                _col_header("Készlet", "Aktuális raktárkészlet (Bartók raktár)", "60px"),
+                                _col_header("IP", "Készletpozíció: Készlet + Rendelve − Hátralékos", "50px", modal_key="ip"),
+                                _col_header_dynamic(InventoryMonitorState.rop_col_label, "Újrarendelési küszöb az adott átfutási időre", "60px", modal_key="rop"),
+                                _col_header("Jav 1h/2h/3h", "Javasolt rendelési mennyiség 1, 2, 3 hónapos átfutásra", "110px", modal_key="jav"),
+                                _col_header("St.", "RENDELJ ha készlet < ROP (3 hó), egyébként OK", "70px", modal_key="status"),
                             ),
                         ),
                         rx.table.body(
@@ -999,20 +1437,36 @@ def _monitor_tab() -> rx.Component:
                     overflow_y="auto",
                     font_size="0.8rem",
                 ),
-                # CSV export
-                rx.cond(
-                    InventoryMonitorState.monitor_csv_data != "",
-                    rx.button(
-                        "CSV Exportálás",
-                        on_click=rx.download(
-                            data=InventoryMonitorState.monitor_csv_data,
-                            filename=InventoryMonitorState.monitor_csv_filename,
+                # Bottom row: CSV export + disclaimer
+                rx.hstack(
+                    rx.cond(
+                        InventoryMonitorState.monitor_csv_data != "",
+                        rx.button(
+                            "CSV Exportálás",
+                            on_click=rx.download(
+                                data=InventoryMonitorState.monitor_csv_data,
+                                filename=InventoryMonitorState.monitor_csv_filename,
+                            ),
+                            variant="outline",
+                            size="2",
                         ),
-                        variant="outline",
-                        size="2",
+                        rx.fragment(),
                     ),
-                    rx.fragment(),
+                    rx.spacer(),
+                    rx.text(
+                        "Jogi nyilatkozat",
+                        font_size="0.75rem",
+                        color=COLORS["muted"],
+                        cursor="pointer",
+                        text_decoration="underline",
+                        _hover={"color": COLORS["accent"]},
+                        on_click=InventoryMonitorState.open_methodology("disclaimer"),
+                    ),
+                    width="100%",
+                    align="center",
                 ),
+                # Methodology modals (rendered but hidden until opened)
+                _methodology_modals(),
                 width="100%",
                 spacing="4",
             ),
