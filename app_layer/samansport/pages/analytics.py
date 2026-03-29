@@ -1352,6 +1352,138 @@ def _methodology_modal_disclaimer() -> rx.Component:
     )
 
 
+def _methodology_modal_idoszak() -> rx.Component:
+    """Modal explaining the Időszak (lookback period) selector."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Időszak — Vizsgált periódus"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "Az időszak határozza meg, hogy melyik termékkör kerül a monitorba. "
+                        "A rendszer az adott periódus árbevétele alapján választja ki a top 100 terméket (SKU-t).",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.text("Mire hat az időszak:", font_weight="600", font_size="0.8rem"),
+                            rx.text("• Top 100 kiválasztása — a kiválasztott időszak árbevétele alapján rangsorol", font_size="0.8rem"),
+                            rx.text("• Stabilitás besorolás — a variációs együttható is ezen időszak alapján számolódik", font_size="0.8rem"),
+                            spacing="1",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.text(
+                        "Az előrejelzések (H+1, H+2, H+3) és az átlagszámítás mindig a teljes "
+                        "elérhető történeti adatot használja a kiválasztott termékekre — "
+                        "nem csak a szűrt időszakot.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "idoszak",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_atfutasi() -> rx.Component:
+    """Modal explaining the Átfutási Idő (lead time) selector."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Átfutási idő — Lead time"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "Az átfutási idő az az időszak, ami a rendelés feladásától a termék "
+                        "beérkezéséig eltelik. Ez határozza meg, hogy milyen távra kell "
+                        "a készletet biztosítani.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.text("Hatása a számításokra:", font_weight="600", font_size="0.8rem"),
+                            rx.text("• ROP — a hosszabb átfutási idő magasabb újrarendelési küszöböt jelent", font_size="0.8rem"),
+                            rx.text("• Státusz — az IP-t a kiválasztott átfutási idő ROP-jához hasonlítja", font_size="0.8rem"),
+                            rx.text("• 1 hó: rövid átfutás (hazai beszállító)", font_size="0.8rem"),
+                            rx.text("• 2 hó: közepes átfutás", font_size="0.8rem"),
+                            rx.text("• 3 hó: hosszú átfutás (import, gyártás)", font_size="0.8rem"),
+                            spacing="1",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "atfutasi",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
+def _methodology_modal_service_level() -> rx.Component:
+    """Modal explaining the Kiszolgálási Szint (service level) selector."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Kiszolgálási szint — Service level"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "A kiszolgálási szint azt jelenti, hogy az esetek hány százalékában "
+                        "szeretnénk elkerülni a készlethiányt. Magasabb szint = nagyobb biztonsági készlet.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.text("Biztonsági tényező (z):", font_weight="600", font_size="0.8rem"),
+                            rx.text("• 90% → z = 1,28 — 10-ből max 1× készlethiány", font_size="0.8rem"),
+                            rx.text("• 95% → z = 1,65 — 20-ból max 1× készlethiány (ajánlott)", font_size="0.8rem"),
+                            rx.text("• 99% → z = 2,33 — 100-ból max 1× készlethiány", font_size="0.8rem"),
+                            spacing="1",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.text(
+                        "A magasabb kiszolgálási szint magasabb ROP-ot eredményez, "
+                        "ami több tőkét köt le készletben, de csökkenti a kifogyás kockázatát.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "service_level",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
 def _methodology_modals() -> rx.Component:
     """All methodology modals grouped together."""
     return rx.fragment(
@@ -1362,6 +1494,9 @@ def _methodology_modals() -> rx.Component:
         _methodology_modal_jav(),
         _methodology_modal_forecast(),
         _methodology_modal_disclaimer(),
+        _methodology_modal_idoszak(),
+        _methodology_modal_atfutasi(),
+        _methodology_modal_service_level(),
     )
 
 
@@ -1537,17 +1672,31 @@ def _monitor_tab() -> rx.Component:
     )
 
 
+def _control_label(label: str, tooltip: str, modal_key: str) -> rx.Component:
+    """Control group label with info icon (same pattern as column headers)."""
+    return rx.hstack(
+        rx.text(
+            label,
+            font_size="0.7rem",
+            font_weight="600",
+            color=COLORS["muted"],
+            text_transform="uppercase",
+        ),
+        _info_icon_clickable(tooltip, modal_key),
+        spacing="1",
+        align="center",
+    )
+
+
 def _monitor_controls() -> rx.Component:
     """Controls row for inventory monitor parameters."""
     return rx.hstack(
         # Lookback period
         rx.vstack(
-            rx.text(
+            _control_label(
                 "IDŐSZAK",
-                font_size="0.7rem",
-                font_weight="600",
-                color=COLORS["muted"],
-                text_transform="uppercase",
+                "Melyik időszak árbevétele alapján választja ki a top 100 terméket",
+                "idoszak",
             ),
             rx.hstack(
                 *[
@@ -1563,12 +1712,10 @@ def _monitor_controls() -> rx.Component:
         ),
         # Lead time
         rx.vstack(
-            rx.text(
+            _control_label(
                 "ÁTFUTÁSI IDŐ",
-                font_size="0.7rem",
-                font_weight="600",
-                color=COLORS["muted"],
-                text_transform="uppercase",
+                "Rendeléstől a beérkezésig eltelt idő — hatással van a ROP-ra és a státuszra",
+                "atfutasi",
             ),
             rx.hstack(
                 *[
@@ -1584,12 +1731,10 @@ def _monitor_controls() -> rx.Component:
         ),
         # Service level
         rx.vstack(
-            rx.text(
+            _control_label(
                 "KISZOLGÁLÁSI SZINT",
-                font_size="0.7rem",
-                font_weight="600",
-                color=COLORS["muted"],
-                text_transform="uppercase",
+                "Milyen valószínűséggel kerüljük el a készlethiányt — magasabb = nagyobb biztonsági készlet",
+                "service_level",
             ),
             rx.hstack(
                 *[
