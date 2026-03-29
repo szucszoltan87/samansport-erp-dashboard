@@ -436,6 +436,50 @@ class InventoryMonitorState(AppState):
         return f"ROP ({self.lead_time}h)"
 
     @rx.var
+    def lead_time_label(self) -> str:
+        return f"{self.lead_time} hónapos"
+
+    @rx.var
+    def rop_example_text(self) -> list[str]:
+        """Build dynamic ROP example lines from SKU 4633 live data."""
+        r = next((d for d in self.monitor_data if d.get("cikkszam") == "4633"), None)
+        if not r:
+            return [
+                "Példa — Boxzsák, Saman Spirit, 150×40 cm (cikkszám: 4633)",
+                "Nincs adat a kiválasztott szűrőkkel.",
+            ]
+        lt = self.lead_time
+        f1 = r.get("forecast_m1", 0)
+        f2 = r.get("forecast_m2", 0)
+        f3 = r.get("forecast_m3", 0)
+        ip = r.get("inventory_position", 0)
+        rop_key = f"rop_{lt}m"
+        rop_val = r.get(rop_key, 0)
+        jav_key = f"javasolt_{lt}m"
+        jav_val = r.get(jav_key, 0)
+        z_map = {0.90: "1,28", 0.95: "1,65", 0.99: "2,33"}
+        z_label = z_map.get(self.service_level, "1,65")
+        if lt == 1:
+            mu_parts = f"H+1 = {_fmt_num(f1)}"
+            mu_val = f1
+        elif lt == 2:
+            mu_parts = f"H+1 = {_fmt_num(f1)}, H+2 = {_fmt_num(f2)}"
+            mu_val = f1 + f2
+        else:
+            mu_parts = f"H+1 = {_fmt_num(f1)}, H+2 = {_fmt_num(f2)}, H+3 = {_fmt_num(f3)}"
+            mu_val = f1 + f2 + f3
+        name = r.get("cikknev", "Boxzsák, Saman Spirit, 150×40 cm")
+        return [
+            f"Példa — {name} (cikkszám: 4633)",
+            f"Előrejelzett kereslet: {mu_parts}",
+            f"{lt} hónapos átfutási időre (z = {z_label}):",
+            f"• Várható kereslet: μ({lt}) = {_fmt_num(mu_val, decimals=1)}",
+            f"• ROP({lt}) = {_fmt_num(rop_val, decimals=1)}",
+            f"• Jelenlegi készlet (IP): {_fmt_num(ip)} db",
+            f"• Javasolt = max(0, {_fmt_num(rop_val, decimals=1)} − {_fmt_num(ip)}) = {_fmt_num(jav_val)} db",
+        ]
+
+    @rx.var
     def monitor_table_data(self) -> list[list]:
         """Build table rows from monitor_data, formatted for display."""
         rows = []
@@ -532,10 +576,12 @@ class InventoryMonitorState(AppState):
         self.monitor_csv_filename = f"samansport_keszlet_riport_{today}.csv"
 
 
-def _fmt_num(val) -> str:
+def _fmt_num(val, decimals: int | None = None) -> str:
     """Format number with space as thousands separator, Hungarian style."""
     try:
         n = float(val)
+        if decimals is not None:
+            return f"{n:,.{decimals}f}".replace(",", " ").replace(".", ",")
         if n == int(n):
             return f"{int(n):,}".replace(",", " ")
         return f"{n:,.1f}".replace(",", " ")
@@ -976,15 +1022,11 @@ def _methodology_modal_rop() -> rx.Component:
                         width="100%",
                     ),
                     rx.box(
-                        rx.text("Példa — Boxzsák, Saman Spirit, 150×40 cm (cikkszám: 4633)", font_weight="600", font_size="0.85rem"),
                         rx.vstack(
-                            rx.text("Előrejelzett kereslet: H+1 = 15, H+2 = 13, H+3 = 19 db", font_size="0.8rem"),
-                            rx.text("3 hónapos átfutási időre:", font_size="0.8rem", font_weight="500"),
-                            rx.text("• Várható kereslet: μ(3) = 15 + 13 + 19 = 46,4 db", font_size="0.8rem"),
-                            rx.text("• Kereslet szórása: σ(3) = 9,7 db", font_size="0.8rem"),
-                            rx.text("• ROP(3) = 46,4 + 1,65 × 9,7 = 62,5 db", font_size="0.8rem"),
-                            rx.text("• Jelenlegi készlet (IP): 3 db", font_size="0.8rem"),
-                            rx.text("• Javasolt = max(0, 62,5 − 3) = 60 db", font_size="0.8rem", font_weight="500"),
+                            rx.foreach(
+                                InventoryMonitorState.rop_example_text,
+                                lambda line: rx.text(line, font_size="0.8rem"),
+                            ),
                             spacing="1",
                         ),
                         padding="0.75rem",
@@ -997,6 +1039,7 @@ def _methodology_modal_rop() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="520px",
         ),
@@ -1048,6 +1091,7 @@ def _methodology_modal_ip() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="480px",
         ),
@@ -1097,6 +1141,7 @@ def _methodology_modal_stability() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="480px",
         ),
@@ -1113,19 +1158,30 @@ def _methodology_modal_status() -> rx.Component:
             rx.dialog.description(
                 rx.vstack(
                     rx.text(
-                        "A státusz azt jelzi, hogy szükséges-e rendelést feladni a termékre.",
+                        "A státusz azt jelzi, hogy szükséges-e rendelést feladni a termékre "
+                        "a kiválasztott átfutási idő alapján.",
                         font_size="0.85rem",
                     ),
                     rx.box(
                         rx.vstack(
                             rx.hstack(
                                 rx.badge("RENDELJ", color_scheme="red", size="1"),
-                                rx.text("Készlet (IP) < ROP 3 hónapos átfutásra — rendelés szükséges", font_size="0.8rem"),
+                                rx.text(
+                                    rx.text.span("Készlet (IP) < ROP "),
+                                    rx.text.span(InventoryMonitorState.lead_time_label),
+                                    rx.text.span(" átfutásra — rendelés szükséges"),
+                                    font_size="0.8rem",
+                                ),
                                 align="center", spacing="2",
                             ),
                             rx.hstack(
                                 rx.badge("OK", color_scheme="green", size="1"),
-                                rx.text("Készlet (IP) ≥ ROP 3 hónapos átfutásra — nincs azonnali teendő", font_size="0.8rem"),
+                                rx.text(
+                                    rx.text.span("Készlet (IP) ≥ ROP "),
+                                    rx.text.span(InventoryMonitorState.lead_time_label),
+                                    rx.text.span(" átfutásra — nincs azonnali teendő"),
+                                    font_size="0.8rem",
+                                ),
                                 align="center", spacing="2",
                             ),
                             spacing="2",
@@ -1136,8 +1192,8 @@ def _methodology_modal_status() -> rx.Component:
                         width="100%",
                     ),
                     rx.text(
-                        "A 3 hónapos átfutási idő a leghosszabb vizsgált időtáv. "
-                        "Ha ezen belül a készlet a ROP alatt van, a rendszer jelzi a rendelési igényt.",
+                        "Ha a kiválasztott átfutási időn belül a készlet a ROP alatt van, "
+                        "a rendszer jelzi a rendelési igényt.",
                         font_size="0.85rem",
                         color=COLORS["text_secondary"],
                     ),
@@ -1146,6 +1202,7 @@ def _methodology_modal_status() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="480px",
         ),
@@ -1196,6 +1253,7 @@ def _methodology_modal_jav() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="480px",
         ),
@@ -1246,6 +1304,7 @@ def _methodology_modal_forecast() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="480px",
         ),
@@ -1284,6 +1343,7 @@ def _methodology_modal_disclaimer() -> rx.Component:
             ),
             rx.dialog.close(
                 rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
             ),
             max_width="480px",
         ),
