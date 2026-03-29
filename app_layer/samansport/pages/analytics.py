@@ -405,6 +405,7 @@ class InventoryMonitorState(AppState):
     lookback_years: int = 2
     lead_time: int = 3
     service_level: float = 0.95
+    top_n: int = 100
     monitor_data: list[dict] = []
     monitor_loading: bool = False
     has_monitor_data: bool = False
@@ -518,7 +519,7 @@ class InventoryMonitorState(AppState):
             import tharanis_client as api
             data = api.get_inventory_monitor(
                 lookback_years=self.lookback_years,
-                top_n=100,
+                top_n=self.top_n,
                 lead_time=self.lead_time,
                 service_level=self.service_level,
             )
@@ -537,6 +538,10 @@ class InventoryMonitorState(AppState):
 
     def set_lead_time(self, months: str):
         self.lead_time = int(months)
+        return self.load_monitor_data()
+
+    def set_top_n(self, n: str):
+        self.top_n = int(n)
         return self.load_monitor_data()
 
     def set_service_level(self, level: str):
@@ -1484,6 +1489,49 @@ def _methodology_modal_service_level() -> rx.Component:
     )
 
 
+def _methodology_modal_top_n() -> rx.Component:
+    """Modal explaining the Termékek (top N) selector."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Termékek — Top N szűrő"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text(
+                        "A monitor az árbevétel alapján rangsorolt termékeket mutatja. "
+                        "Ezzel a szűrővel beállíthatod, hogy a top 20, 50 vagy 100 terméket lásd.",
+                        font_size="0.85rem",
+                    ),
+                    rx.box(
+                        rx.vstack(
+                            rx.text("• Top 20 — a legfontosabb termékek gyors áttekintése", font_size="0.8rem"),
+                            rx.text("• Top 50 — közepes kiterjedésű figyelés", font_size="0.8rem"),
+                            rx.text("• Top 100 — teljes körű monitoring", font_size="0.8rem"),
+                            spacing="1",
+                        ),
+                        padding="0.75rem",
+                        background=COLORS["50"],
+                        border_radius="8px",
+                        width="100%",
+                    ),
+                    rx.text(
+                        "A rangsor a kiválasztott Időszak árbevétele alapján készül.",
+                        font_size="0.85rem",
+                        color=COLORS["text_secondary"],
+                    ),
+                    spacing="3",
+                ),
+            ),
+            rx.dialog.close(
+                rx.button("Bezárás", variant="outline", size="2"),
+                margin_top="1rem",
+            ),
+            max_width="480px",
+        ),
+        open=InventoryMonitorState.methodology_modal == "top_n",
+        on_open_change=InventoryMonitorState.close_methodology,
+    )
+
+
 def _methodology_modals() -> rx.Component:
     """All methodology modals grouped together."""
     return rx.fragment(
@@ -1497,6 +1545,7 @@ def _methodology_modals() -> rx.Component:
         _methodology_modal_idoszak(),
         _methodology_modal_atfutasi(),
         _methodology_modal_service_level(),
+        _methodology_modal_top_n(),
     )
 
 
@@ -1695,7 +1744,7 @@ def _monitor_controls() -> rx.Component:
         rx.vstack(
             _control_label(
                 "IDŐSZAK",
-                "Melyik időszak árbevétele alapján választja ki a top 100 terméket",
+                "Melyik időszak árbevétele alapján választja ki a top termékeket",
                 "idoszak",
             ),
             rx.hstack(
@@ -1706,6 +1755,25 @@ def _monitor_controls() -> rx.Component:
                         InventoryMonitorState.lookback_years == y,
                     )
                     for y in [1, 2, 3, 5]
+                ],
+                spacing="1",
+            ),
+        ),
+        # Top N
+        rx.vstack(
+            _control_label(
+                "TERMÉKEK",
+                "Hány terméket jelenítsen meg a monitor (árbevétel szerinti rangsor)",
+                "top_n",
+            ),
+            rx.hstack(
+                *[
+                    _toggle_btn(
+                        f"Top {n}",
+                        InventoryMonitorState.set_top_n(str(n)),
+                        InventoryMonitorState.top_n == n,
+                    )
+                    for n in [20, 50, 100]
                 ],
                 spacing="1",
             ),
