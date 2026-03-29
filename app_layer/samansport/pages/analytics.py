@@ -904,13 +904,16 @@ def _info_icon_clickable(tooltip: str, modal_key: str) -> rx.Component:
     )
 
 
-def _col_header(label: str, tooltip: str, width: str, modal_key: str = "") -> rx.Component:
+def _col_header(
+    label: str, tooltip: str, width: str, modal_key: str = "", use_min_width: bool = False,
+) -> rx.Component:
     """Column header cell with label + info icon."""
     icon = (
         _info_icon_clickable(tooltip, modal_key)
         if modal_key
         else _info_icon(tooltip)
     )
+    size_kwarg = {"min_width": width} if use_min_width else {"width": width}
     return rx.table.column_header_cell(
         rx.hstack(
             rx.text(label, white_space="nowrap"),
@@ -918,7 +921,7 @@ def _col_header(label: str, tooltip: str, width: str, modal_key: str = "") -> rx
             spacing="1",
             align="center",
         ),
-        width=width,
+        **size_kwarg,
     )
 
 
@@ -1404,7 +1407,7 @@ def _monitor_tab() -> rx.Component:
                             rx.table.row(
                                 _col_header("#", "Rangsor árbevétel alapján", "40px"),
                                 _col_header("Cikksz.", "Cikkszám (SKU azonosító)", "70px"),
-                                _col_header("Terméknév", "A termék megnevezése", "200px"),
+                                _col_header("Terméknév", "A termék megnevezése", "200px", use_min_width=True),
                                 _col_header("Stab.", "Kereslet stabilitása (variációs együttható alapján)", "75px", modal_key="stability"),
                                 _col_header("Havi el.", "Aktuális hónap eddigi eladásai", "55px"),
                                 _col_header("Havi hátra", "Hónap végéig várható további eladások (előrejelzés − eddigi)", "70px"),
