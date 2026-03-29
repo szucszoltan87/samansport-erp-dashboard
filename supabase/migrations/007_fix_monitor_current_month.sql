@@ -47,7 +47,9 @@ BEGIN
     v_cutoff := TO_CHAR(CURRENT_DATE - (p_lookback_years || ' years')::interval, 'YYYY.MM.DD');
 
     -- Detect the latest month with actual sales data
-    SELECT MAX(TO_DATE(s.telj_d, 'YYYY.MM.DD'))
+    -- Use MAX on the text column directly (YYYY.MM.DD sorts lexicographically)
+    -- to leverage the idx_szamlak_tenant_date index, then parse once.
+    SELECT TO_DATE(MAX(s.telj_d), 'YYYY.MM.DD')
       INTO v_latest_date
       FROM raw.szamlak_analitika s
      WHERE s.tenant_id = p_tenant_id
